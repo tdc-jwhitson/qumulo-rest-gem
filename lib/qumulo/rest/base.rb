@@ -1,5 +1,7 @@
 require "json"
 require "net/http"
+require "net/https"
+require "openssl"
 require "qumulo/rest/exception"
 require "qumulo/rest/client"
 module Qumulo::Rest
@@ -164,12 +166,10 @@ module Qumulo::Rest
       post.content_type = "application/json"
       post.body = JSON.generate(@attrs)
       client = opts[:client] || Client.default
-      puts "\n----"
-      puts client.host
-      puts client.port
-      response = Net::HTTP.new(client.host, client.port).start do |http|
-        http.request(post)
-      end
+      http = Net::HTTP.new(client.host, client.port)
+      http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      response = http.start {|cx| cx.request(post)}
       process_response(response)
     end
 
