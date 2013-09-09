@@ -3,7 +3,7 @@ lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'qumulo/rest/gem_version'
 
-QUMULO_PRODUCT_NAME = "Qumulo storage appliance"
+QUMULO_PRODUCT_NAME = "Qumulo Core appliance"
 Gem::Specification.new do |spec|
   spec.name          = "qumulo-rest"
   spec.version       = Qumulo::Rest::GEM_VERSION

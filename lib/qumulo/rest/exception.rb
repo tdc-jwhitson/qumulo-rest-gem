@@ -5,6 +5,7 @@ module Qumulo::Rest
   # convenient to look at when an error gets thrown
   #
   class ErrorBase < RuntimeError
+    attr_reader :contect
     def initialize(msg, context = nil)
       super(msg)
       @context = context
@@ -12,12 +13,22 @@ module Qumulo::Rest
   end
 
   # === Description
-  # Passed argument is not valid
+  # Invalid client configuration
   #
-  class ArgumentError < ErrorBase; end
+  class ConfigError < ErrorBase; end
 
   # === Description
-  # There was a problem with authentication
+  # Passed argument is not valid
+  #
+  class ValidationError < ErrorBase; end
+
+  # === Description
+  # Operation attempted without successful login
+  #
+  class LoginRequired < ErrorBase; end
+
+  # === Description
+  # There was authentication problem during login
   #
   class AuthenticationError < ErrorBase; end
 
@@ -25,6 +36,26 @@ module Qumulo::Rest
   # Errors related to generation of URL
   #
   class UrlError < ErrorBase; end
+
+  # === Description
+  # HTTP request failed. Use obj.response to check against the failure type;
+  # The context is set to the corresponding response object.
+  # Example code:
+  #
+  #   begin
+  #     user.put!
+  #   rescue Qumulo::Rest::RequetFailed => e
+  #     if e.context.is_a?(Net::HTTPForbidden)
+  #       # do somehting to obtain permission
+  #     end
+  #   end
+  #
+  class RequestFailed < ErrorBase; end
+
+  # === Description
+  # Errors deliberately caused by a test or just a badly written test
+  #
+  class TestError < ErrorBase; end
 
 end
 
