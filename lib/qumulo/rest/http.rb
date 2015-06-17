@@ -62,15 +62,24 @@ module Qumulo::Rest
       http.read_timeout = @read_timeout
       response = http.start {|cx| cx.request(request)}
       result = {:response => response, :code => response.code.to_i}
-      if response.is_a?(Net::HTTPError)
+      result[:body] = response.body # for debugging
+      if response.is_a?(Net::HTTPSuccess)
+        # XXX - we should not always parse the body.  For file data,
+        # we should store it to an open stream, or just store it as binary.
+        # This is not yet implemented.
+        begin
+          result[:attrs] = JSON.parse(response.body)
+        rescue JSON::ParserError
+          # Sometimes QFSD returns non-json body. (e.g. /v1/setpassword)
+          # Ignore body of unparsable success response.
+          result[:attrs] = {}
+        end
+      else
         begin
           result[:error] = JSON.parse(response.body)
         rescue JSON::ParserError
           result[:error] = { :message => response.msg }
         end
-      else
-        result[:body] = response.body # for debugging
-        result[:attrs] = JSON.parse(response.body)
       end
       result
     end

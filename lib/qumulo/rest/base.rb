@@ -125,7 +125,8 @@ module Qumulo::Rest
           if not type.nil? and not val.is_a?(type)
             unless type == Bignum and val.is_a?(Fixnum)
               raise DataTypeError.new(
-                "Unexpected type: #{val.class.name} (#{val.inspect}) for #{name}")
+                "Unexpected type: #{val.class.name} (#{val.inspect}) for #{name} " +
+                "[required: #{type}]")
             end
           end
 
@@ -297,19 +298,39 @@ module Qumulo::Rest
     # Also initializes instance variables, as follows.
     #
     # === Instance Variables
-    # @attrs:: Hash object represents the up-to-date resource state
+    # @src_obj:: Hash object represents the up-to-date resource state
+    #            -or- can be another Base-derived class instance to transfer content from
     # @error:: stores any error details returned by the server
     # @response:: last received Net::HTTPResponse object
     #
-    def initialize(attrs = {})
-      # convert symbol keys to string keys
-      @attrs = {}
-      attrs.each do |k, v|
-        self.send(k.to_s + "=", v)
+    def initialize(src_obj = {})
+      if src_obj.is_a?(Hash)
+        # convert symbol keys to string keys
+        @attrs = {}
+        src_obj.each do |k, v|
+          self.send(k.to_s + "=", v)
+        end
+        @body = ""
+        @error = nil
+        @response = nil
+      else
+        @attrs = src_obj.instance_variable_get("@attrs")
+        @body = src_obj.instance_variable_get("@body")
+        @error = src_obj.instance_variable_get("@error")
+        @response = src_obj.instance_variable_get("@response")
       end
-      @body = ""
-      @error = nil
-      @response = nil
+    end
+
+    # === Description
+    # Transfer all attributes of a resource object, without triggering any validation.
+    # This is used to support "result class" feature.
+    #
+    # === Parameters
+    # other:: a Base-derived class instance from which to extract attributes from,
+    #         set the contents of the current instance.
+    #
+    def with_content_from(other)
+      self
     end
 
     # === Description
@@ -390,7 +411,7 @@ module Qumulo::Rest
           "Request failed #{self.inspect}", @response)
       end
       if self.class.result_class
-        self.class.result_class.new(@attrs)
+        self.class.result_class.new(self)
       else
         self
       end

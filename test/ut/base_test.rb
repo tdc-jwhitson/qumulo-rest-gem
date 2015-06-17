@@ -228,7 +228,7 @@ module Qumulo::Rest
                    "lyrics" => "Hello Hello Hello", "artist" => "monkey"}
         })
       song = SongOfTheDay.get
-      assert_equal(Song, song.class)
+      assert_instance_of(Song, song)
       assert_equal("102", song.id)
       assert_equal("Hello", song.title)
       assert_equal("monkey", song.artist)
@@ -269,7 +269,7 @@ module Qumulo::Rest
 
       # Verify that a collection returns instances of items class
       songs.items.each do |song|
-        assert_equal(Song, song.class)
+        assert_instance_of(Song, song)
       end
 
       # Using instance accessors
@@ -314,7 +314,7 @@ module Qumulo::Rest
 
       # Verify that a collection returns instances of items class
       fans.items.each do |fan|
-        assert_equal(Fan, fan.class)
+        assert_instance_of(Fan, fan)
       end
 
       # Using instance accessors

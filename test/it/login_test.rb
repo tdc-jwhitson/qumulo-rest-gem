@@ -29,5 +29,33 @@ module Qumulo::Rest
       assert_equal("admin", me.name)
     end
 
+    def test_change_password
+      begin
+        Client.login(:username => "admin", :password => "admin")
+        V1::SetPassword.post(:old_password => "admin", :new_password => "p@55")
+        me = Qumulo::Rest::V1::WhoAmI.get
+        assert_equal("admin", me.name)
+
+        # Cannot login using the old password
+        Client.logout
+        assert_raise AuthenticationError do
+          Client.login(:username => "admin", :password => "admin")
+        end
+        assert_raise LoginRequired do
+          Qumulo::Rest::V1::WhoAmI.get
+        end
+
+        # Log in with new password
+        Client.login(:username => "admin", :password => "p@55")
+        me = Qumulo::Rest::V1::WhoAmI.get
+        assert_equal("admin", me.name)
+
+      ensure
+        # Restore the normal "admin" password before test case is done
+        Client.login(:username => "admin", :password => "p@55")
+        V1::SetPassword.post(:old_password => "p@55", :new_password => "admin")
+      end
+    end
+
   end
 end

@@ -81,6 +81,16 @@ module Qumulo::Rest
       @default_client.login(args)
     end
 
+    # === Description
+    # Clear login session.
+    #
+    def self.logout
+      unless @default_client
+        raise ConfigError.new("Cannot log out without configuring client")
+      end
+      @default_client.logout
+    end
+
     # --------------------------------------------------------------------------
     # Constructor
     #
@@ -129,6 +139,13 @@ module Qumulo::Rest
     end
 
     # === Description
+    # Clear login_session
+    #
+    def logout
+      @login_session = nil
+    end
+
+    # === Description
     # Log into Qumulo storage appliance.
     #
     # === Parameters
@@ -163,7 +180,7 @@ module Qumulo::Rest
     # LoginRequired unless a valid login session has been established
     #
     def get_bearer_token
-      "Bearer " + get_login_session.bearer_token
+      "Bearer " + get_login_session.bearer_token.to_s
     end
 
   end

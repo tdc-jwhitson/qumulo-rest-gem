@@ -7,6 +7,9 @@ module Qumulo::Rest::V1
   #
   class Version < Qumulo::Rest::Base
     uri_spec "/v1/version"
+    field :revision_id, String
+    field :build_id, String
+    field :build_date, DateTime
   end
 
 end
