@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description   = %q{Client library for #{QUMULO_PRODUCT_NAME}}
   spec.summary       = %q{Provides classes for accessing RESTful API defined for #{QUMULO_PRODUCT_NAME}}
   spec.homepage      = "http://www.qumulo.com"
-  spec.license       = "MIT"
+  spec.license       = "Apache"
 
   spec.files         = `git ls-files`.split($/)
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
