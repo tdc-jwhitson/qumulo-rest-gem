@@ -40,6 +40,11 @@ module Qumulo::Rest
     items Song
   end
 
+  class SongOfTheDay < Qumulo::Rest::Base
+    uri_spec "/v1/song-of-the-day"
+    result Song
+  end
+
   class Album < Qumulo::Rest::Base
     uri_spec "/v1/albums/:id"
     field :id, String
@@ -214,6 +219,19 @@ module Qumulo::Rest
       assert_equal(200, album.code)
       assert_equal(false, album.error?)
 
+    end
+
+    def test_result_class
+      FakeHttp.set_fake_response(:get, "/v1/song-of-the-day", {
+        :code => 200,
+        :attrs => {"id" => "102", "album" => "10", "title" => "Hello",
+                   "lyrics" => "Hello Hello Hello", "artist" => "monkey"}
+        })
+      song = SongOfTheDay.get
+      assert_equal(Song, song.class)
+      assert_equal("102", song.id)
+      assert_equal("Hello", song.title)
+      assert_equal("monkey", song.artist)
     end
 
   end

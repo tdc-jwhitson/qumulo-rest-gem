@@ -25,6 +25,8 @@ module Qumulo::Rest
     def test_who_am_I
       Client.login(:username => "admin", :password => "admin")
       me = Qumulo::Rest::V1::WhoAmI.get
+      assert_equal(V1::User, me.class)
+      assert_equal("admin", me.name)
     end
 
   end

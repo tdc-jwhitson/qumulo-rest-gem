@@ -145,6 +145,28 @@ module Qumulo::Rest
         end
       end
 
+      # === Description
+      # Set the result class.  When result_class is set, the result class gets
+      # returned, instead of the original class.
+      #
+      # === Parameters
+      # cls:: a class object that derives from Qumulo::Rest::Base.
+      #
+      def result(cls)
+        if cls < Base
+          @result_class = cls
+        else
+          raise DataTypeError.new("#{cls.inspect} is not derived from Qumulo::Rest::Base.")
+        end
+      end
+
+      # === Description
+      # Return the result class closest to the current derived class.
+      #
+      def result_class
+        @result_class
+      end
+
       # --------------------------------------------------------------------------
       # CRUD using class methods
       #
@@ -367,7 +389,11 @@ module Qumulo::Rest
         raise Qumulo::Rest::RequestFailed.new(
           "Request failed #{self.inspect}", @response)
       end
-      self
+      if self.class.result_class
+        self.class.result_class.new(@attrs)
+      else
+        self
+      end
     end
 
     # === Description

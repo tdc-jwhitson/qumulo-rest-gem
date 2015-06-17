@@ -7,6 +7,11 @@ module Qumulo::Rest::V1
   #
   class User < Qumulo::Rest::Base
     uri_spec "/v1/auth/users/:id"
+    field :id, String
+    field :sid, String
+    field :primary_group, String
+    field :name, String
+    field :uid, String
   end
 
   # == Class Description
@@ -14,11 +19,6 @@ module Qumulo::Rest::V1
   #
   class WhoAmI < Qumulo::Rest::Base
     uri_spec "/v1/who-am-i"
-
-    field :id, String
-    field :sid, String
-    field :primary_group, String
-    field :name, String
-    field :uid, String
+    result User
   end
 end
