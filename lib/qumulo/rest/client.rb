@@ -1,5 +1,7 @@
 require "qumulo/rest/exception"
 require "qumulo/rest/validator"
+require "qumulo/rest/http"
+require "qumulo/rest/base"
 require "qumulo/rest/v1/login_session"
 module Qumulo::Rest
 
@@ -165,4 +167,8 @@ module Qumulo::Rest
     end
 
   end
+
+  # Need to do this here to break the dependency cycle:
+  # Client ---> LoginSession ---> Base --(X)-> Client
+  Qumulo::Rest::Base.set_client_class(Client)
 end

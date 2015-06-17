@@ -1,8 +1,7 @@
+require "date"
 require "qumulo/rest/validator"
-require "qumulo/rest/http"
-require "qumulo/rest/client"
 
-UTF8 = Iconv.new("UTF-8//IGNORE", "UTF-8")
+# UTF8 = Iconv.new("UTF-8//IGNORE", "UTF-8")
 module Qumulo::Rest
 
   # == Class Description
@@ -10,16 +9,28 @@ module Qumulo::Rest
   # This class takes care of the following:
   # * DSL for defining RESTful resource
   # * HTTP request/response handling
-  # * Request signing
   # * Response Parsing
   #
   class Base
+    # Set by client class once it gets loaded
+    @@client_class = nil
 
     # --------------------------------------------------------------------------
     # Class methods
     #
     class << self
       include Qumulo::Rest::Validator
+
+      # === Description
+      # Set the client class once the client class gets loaded.
+      # Before then, this Base class cannot make REST API calls (which sort of makes sense).
+      #
+      # === Paramters
+      # cls:: a class object, most likely Qumulo::Rest::Client
+      #
+      def set_client_class(cls)
+        @@client_class = cls
+      end
 
       # ------------------------------------------------------------------------
       # Resource DSL
@@ -52,10 +63,36 @@ module Qumulo::Rest
       # Define accessors for a JSON attribute. This looks for the named attribute
       # in @attrs. You can optionally define type of the attribute, which gets used
       # inside the setter if provided. You can also specify additional options.
+      #
       # Here are some examples:
       #
-      #   field key         # It's OK to not specify data type; this is Ruby!
-      #   field id, String  # Adding type will validate things for you though
+      #   field key          # It's OK to not specify data type; this is Ruby!
+      #   field id, String   # Adding type will validate things for you though
+      #
+      # Specifying types help you convert between Qumulo API's JSON representation
+      # of the type, and a convenient Ruby type.  Here are all supported types to
+      # use with the field directive:
+      #
+      # Type specified            | How it is stored in Qumulo API JSON
+      # --------------------------+----------------------------------------------
+      # String                    | String (unicode)
+      # --------------------------+----------------------------------------------
+      # Integer (Fixnum)          | Integer
+      # --------------------------+----------------------------------------------
+      # DateTime                  | String, like "2015-06-06T01:15:53.312045459Z"
+      # --------------------------+----------------------------------------------
+      # Bignum                    | String, like "10000000000000000000000000"
+      # --------------------------+----------------------------------------------
+      # Class derived from Base   | Hash - what gets returned with .as_hash
+      # --------------------------+----------------------------------------------
+      # Hash (untyped)            | Hash, with arbitrary content
+      # --------------------------+----------------------------------------------
+      # Array (untyped)           | Array, with arbitrary content
+      # --------------------------+----------------------------------------------
+      #
+      # Note that you can use Hash or Array to use a fragment of JSON dictionary
+      # without any conversion or validation.  This is a good way to deal with a
+      # lot of data (e.g. in case of analytics data) efficiently.
       #
       # === Parameters
       # name:: Name of the attribute as Symbol
@@ -63,14 +100,48 @@ module Qumulo::Rest
       # opts:: Hash object representing any additional options
       #
       def field(name, type = nil, opts = {})
+
+        name_s = name.to_s
+
+        # Define getter
         define_method(name) do
-          @attrs[name.to_s]
-        end
-        define_method(name.to_s + "=") do |val|
-          if type and not val.is_a?(type)
-            raise TypeError.new("Unexpected type: #{val.inspect} for #{name}")
+          json_val = @attrs[name_s]
+          if [String, Integer, Array, Hash].include?(type)
+            json_val
+          elsif type == Bignum
+            json_val.to_i       # Ruby handles 64-bit integers seemlessly using Bignum
+          elsif type == DateTime
+            DateTime.parse(json_val)
+          elsif type and type < Base     # if type is derived from Base
+            type.new(json_val)
+          else
+            json_val
           end
-          @attrs[name.to_s] = val
+        end
+
+        # Define setter
+        define_method(name_s + "=") do |val|
+
+          if not type.nil? and not val.is_a?(type)
+            unless type == Bignum and val.is_a?(Fixnum)
+              raise DataTypeError.new(
+                "Unexpected type: #{val.class.name} (#{val.inspect}) for #{name}")
+            end
+          end
+
+          if [nil, String, Integer, Array, Hash].include?(type)
+            @attrs[name_s] = val
+          elsif type == Bignum
+            @attrs[name_s] = val.to_s
+          elsif type == DateTime
+            @attrs[name_s] = val.strftime("%Y-%m-%dT%H:%M:%S.%NZ")
+          elsif type and type < Base
+            @attrs[name_s] = val.as_hash
+          else
+            raise DataTypeError.new(
+              "Cannot store: #{val.inspect} into attribute: #{name} " +
+              "[requires: #{type}]")
+          end
         end
       end
 
@@ -94,10 +165,10 @@ module Qumulo::Rest
       def resolve_path(path, kv)
         validate_instance_of(:kv, kv, Hash)
         resolved = []
-        path.split('/').each do |part|
+        path.split('/', -1).each do |part|
           resolved_part = (part =~ /^:/) ? kv[part.sub(/^:/, '')].to_s : part
           if (part != "" and resolved_part == "")
-            throw UrlError.new("Cannot resolve #{part} in path #{path} from #{kv.inspect}")
+            throw UriError.new("Cannot resolve #{part} in path #{path} from #{kv.inspect}")
           end
           resolved << resolved_part
         end
@@ -208,11 +279,11 @@ module Qumulo::Rest
     # @error:: stores any error details returned by the server
     # @response:: last received Net::HTTPResponse object
     #
-    def initialize(attrs)
+    def initialize(attrs = {})
       # convert symbol keys to string keys
       @attrs = {}
       attrs.each do |k, v|
-        @attrs[k.to_s] = v
+        self.send(k.to_s + "=", v)
       end
       @body = ""
       @error = nil
@@ -231,6 +302,14 @@ module Qumulo::Rest
     end
 
     # === Description
+    # Return the object as Hash.  This is simply returns @attrs, since we always
+    # maintain the JSON-ifiable hash in @attrs via accessors.
+    #
+    def as_hash
+      @attrs
+    end
+
+    # === Description
     # Create an http request to call HTTP verbs on.  This facilitates injecting
     # fake http object during unit test.
     #
@@ -245,7 +324,10 @@ module Qumulo::Rest
     # (or Qumulo::Rest::FakeHttp object for unit testing if client is a fake client)
     #
     def http(request_opts = {})
-        client = request_opts[:client] || Qumulo::Rest::Client.default
+        if @@client_class.nil?
+          raise ConfigError.new("Qumulo::Rest::Client class has not been loaded yet!")
+        end
+        client = request_opts[:client] || @@client_class.default
         client.http(request_opts)
     end
 
@@ -265,11 +347,13 @@ module Qumulo::Rest
     # If http request fails, @response and @error are populated.
     #
     # === Parameters
-    #  {
-    #    :response => <Net::HTTPResponse object resulting from Http request>,
-    #    :attrs => <Hash object for resource attrs> or <nil> if request failed,
-    #    :error => <Hash object for error structure> or <nil> if request success
-    #  }
+    # result:: Hash object of form:
+    # {
+    #   :response => <Net::HTTPResponse object resulting from Http request>,
+    #   :code => integer HTTP status code,
+    #   :attrs => <Hash object for resource attrs> or <nil> if request failed,
+    #   :error => <Hash object for error structure> or <nil> if request success
+    # }
     #
     # === Returns
     # self

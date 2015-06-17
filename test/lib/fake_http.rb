@@ -86,7 +86,12 @@ module Qumulo::Rest
     # Corresponding response Hash object
     #
     def get_fake_response(method, path)
-      @@fake_responses[method][path]
+      resp = @@fake_responses[method][path]
+      if resp.nil?
+        raise TestError.new(
+          "FakeHttp has no response for: [#{method.to_s.upcase} #{path}]")
+      end
+      resp
     end
 
     # === Description

@@ -35,7 +35,22 @@ module Qumulo::Rest
   # === Description
   # Errors related to generation of URL
   #
-  class UrlError < ErrorBase; end
+  class UriError < ErrorBase; end
+
+  # === Description
+  # No data has been retrieved yet.
+  #
+  class NoData < ErrorBase; end
+
+  # === Description
+  # Type error when using accessors against Base class.
+  #
+  class DataTypeError < ErrorBase; end
+
+  # === Description
+  # REST response mismatched expected structure according to resource class definion.
+  #
+  class ResourceMismatchError < ErrorBase; end
 
   # === Description
   # HTTP request failed. Use obj.response to check against the failure type;
