@@ -322,18 +322,6 @@ module Qumulo::Rest
     end
 
     # === Description
-    # Transfer all attributes of a resource object, without triggering any validation.
-    # This is used to support "result class" feature.
-    #
-    # === Parameters
-    # other:: a Base-derived class instance from which to extract attributes from,
-    #         set the contents of the current instance.
-    #
-    def with_content_from(other)
-      self
-    end
-
-    # === Description
     # Check if the last HTTP request has failed.
     #
     # === Returns
