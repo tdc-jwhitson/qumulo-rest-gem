@@ -1,9 +1,11 @@
 require 'test/unit'
+require 'test_env'
 require 'qumulo/rest'
 require 'qumulo/rest/v1/user'
 
 module Qumulo::Rest::V1
   class LoginTest < Test::Unit::TestCase
+    include Qumulo::Rest::ReadEnv
 
     INTEGRATION_TEST_PREFIX = "integration test object "
 
@@ -29,10 +31,9 @@ module Qumulo::Rest::V1
     end
 
     def setup
-      @addr = ENV['QUMULO_ADDR'] || "localhost"
-      @port = (ENV['QUMULO_PORT'] || 8000).to_i
+      connection_params_from_env # sets @username, @password, @addr, @port
       Qumulo::Rest::Client.configure(:addr => @addr, :port => @port)
-      Qumulo::Rest::Client.login(:username => "admin", :password => "admin")
+      Qumulo::Rest::Client.login(:username => @username, :password => @password)
 
       # Figure out the users group and admin group for use in test cases
       Groups.get.items.each do |group|
