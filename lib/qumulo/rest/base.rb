@@ -276,7 +276,7 @@ module Qumulo::Rest
 
     # last received response; if nil, HTTP request was never sent from instance
     attr_accessor :response
-
+    attr_reader :etag
     attr_reader :error
     attr_reader :code
     attr_reader :attrs
@@ -384,6 +384,7 @@ module Qumulo::Rest
     #
     def store_result(result = {})
       @response = result[:response]
+      @etag = @response ? @response["etag"] : nil
       @attrs = result[:attrs] if result[:attrs] # only update @attrs if success
       @error = result[:error]                   # clears @error if success
       @code = result[:code]
@@ -428,7 +429,7 @@ module Qumulo::Rest
     # RequestFailed if error
     #
     def put(request_opts = {})
-      store_result(http(request_opts).put(resolved_path, @attrs))
+      store_result(http(request_opts).put(resolved_path, @attrs, @etag))
     end
 
     # === Description

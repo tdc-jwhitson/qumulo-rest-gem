@@ -117,11 +117,12 @@ module Qumulo::Rest
     # === Parameters
     # path:: URI path, including query string parameters
     # attrs:: Hash object containing key-value pairs representing resource
+    # etag:: (optional) etag to add to the request
     #
     # === Returns
     # result Hash object from @@fake_response hash
     #
-    def put(path, attrs)
+    def put(path, attrs, etag=nil)
       return get_fake_response(:put, path)
     end
 

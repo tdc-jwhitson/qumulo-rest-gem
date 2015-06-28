@@ -153,6 +153,34 @@ module Qumulo::Rest::V1
 
     end
 
+    def test_etag_mismatch
+
+      # Create user
+      user = Users.post(:name => with_prefix("richard"), :primary_group => 513)
+      user_1_id = user.id
+
+      # Read user (we are about to update user 1)
+      user_1_a = User.get(:id => user_1_id)
+      user_1_a.uid = 680
+
+      # Another client updates user 1
+      user_1_b = User.get(:id => user_1_id)
+      user_1_b.name = with_prefix("richard III")
+      user_1_b.put
+      user_1_b = User.get(:id => user_1_id)
+      assert_equal(with_prefix("richard III"), user_1_b.name)
+
+      # Trying to update the same user with out-of-date etag should fail
+      assert_raise Qumulo::Rest::RequestFailed do
+        user_1_a.put
+      end
+
+      # Make sure that uid was never updated on the server-side
+      user_1_c = User.get(:id => user_1_id)
+      assert_equal(0, user_1_c.uid)
+
+    end
+
     def test_user_add_remove_group
     end
 

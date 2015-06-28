@@ -117,13 +117,17 @@ module Qumulo::Rest
     # === Parameters
     # path:: URI path, including query string parameters
     # attrs:: Hash object containing key-value pairs representing resource
+    # etag:: (optional) etag to add to the request
     #
     # === Returns
     # result Hash object
     #
-    def put(path, attrs)
+    def put(path, attrs, etag=nil)
       put = Net::HTTP::Put.new(path)
       put.body = JSON.generate(attrs)
+      if etag
+        put["if-match"] = etag
+      end
       http_execute(put)
     end
 
