@@ -48,6 +48,11 @@ module Qumulo::Rest
   class DataTypeError < ErrorBase; end
 
   # === Description
+  # Raised whenever the caller passed a wrong argument to a call.
+  #
+  class ArgumentError < ErrorBase; end
+
+  # === Description
   # REST response mismatched expected structure according to resource class definion.
   #
   class ResourceMismatchError < ErrorBase; end

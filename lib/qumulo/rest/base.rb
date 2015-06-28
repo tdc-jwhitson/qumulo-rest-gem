@@ -1,5 +1,6 @@
 require "date"
 require "qumulo/rest/validator"
+require "qumulo/rest/request_options"
 
 # UTF8 = Iconv.new("UTF-8//IGNORE", "UTF-8")
 module Qumulo::Rest
@@ -203,11 +204,8 @@ module Qumulo::Rest
       #
       # === Parameters
       # attrs:: attributes to pass to post
-      # request_opts:: Hash object to control request details; see http_execute
-      # request_opts[:client]:: (optional) client object to use.
-      # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-      # request_opts[:not_authorized]:: set true to skip adding authorization
-      #
+      # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+      #                Or an instance of RequestOptions class.
       # === Returns
       # Returns an instance object of relevant resource class representing
       # the new resource
@@ -224,11 +222,8 @@ module Qumulo::Rest
       #
       # === Parameters
       # attrs:: attributes to pass to put
-      # request_opts:: Hash object to control request details; see http_execute
-      # request_opts[:client]:: (optional) client object to use.
-      # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-      # request_opts[:not_authorized]:: set true to skip adding authorization
-      #
+      # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+      #                Or an instance of RequestOptions class.
       # === Returns
       # Returns an instance object.
       #
@@ -244,11 +239,8 @@ module Qumulo::Rest
       #
       # === Parameters
       # attrs:: attributes of the resource to get.  Mostly :id is interesting in case of get.
-      # request_opts:: Hash object to control request details; see http_execute
-      # request_opts[:client]:: (optional) client object to use.
-      # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-      # request_opts[:not_authorized]:: set true to skip adding authorization
-      #
+      # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+      #                Or an instance of RequestOptions class.
       # === Returns
       # Instance of the resource
       #
@@ -264,11 +256,8 @@ module Qumulo::Rest
       #
       # === Parameters
       # attrs:: attributes of the resource to delete.  Mostly :id is interesting in case of delete.
-      # request_opts:: Hash object to control request details; see http_execute
-      # request_opts[:client]:: (optional) client object to use.
-      # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-      # request_opts[:not_authorized]:: set true to skip adding authorization
-      #
+      # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+      #                Or an instance of RequestOptions class.
       # === Returns
       # Instance of the resource
       #
@@ -345,11 +334,8 @@ module Qumulo::Rest
     # fake http object during unit test.
     #
     # === Parameters
-    # request_opts:: Hash object to control request details; see http_execute
-    # request_opts[:client]:: (optional) client object to use.
-    # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-    # request_opts[:not_authorized]:: set true to skip adding authorization
-    #
+    # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+    #                Or an instance of RequestOptions class.
     # === Returns
     # An instance of Qumulo::Rest::Http object
     # (or Qumulo::Rest::FakeHttp object for unit testing if client is a fake client)
@@ -358,7 +344,14 @@ module Qumulo::Rest
         if @@client_class.nil?
           raise ConfigError.new("Qumulo::Rest::Client class has not been loaded yet!")
         end
-        client = request_opts[:client] || @@client_class.default
+        if request_opts.is_a?(Hash)
+          request_opts = RequestOptions.new(request_opts)
+        else
+          unless request_opts.is_a?(RequestOptions)
+            raise ArgumentError.new("We need RequestOptions instance here")
+          end
+        end
+        client = request_opts.client || @@client_class.default
         client.http(request_opts)
     end
 
@@ -389,7 +382,7 @@ module Qumulo::Rest
     # === Returns
     # self
     #
-    def store_result(result)
+    def store_result(result = {})
       @response = result[:response]
       @attrs = result[:attrs] if result[:attrs] # only update @attrs if success
       @error = result[:error]                   # clears @error if success
@@ -409,10 +402,8 @@ module Qumulo::Rest
     # Perform POST request to create the resource on the server-side.
     #
     # === Parameters
-    # request_opts[:client]:: (optional) client object to use.
-    # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-    # request_opts[:not_authorized]:: set true to skip adding authorization
-    #
+    # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+    #                Or an instance of RequestOptions class.
     # === Returns
     # self
     #
@@ -428,11 +419,8 @@ module Qumulo::Rest
     #
     # === Parameters
     # attrs:: attributes to pass to post
-    # request_opts:: Hash object to control request details
-    # request_opts[:client]:: (optional) client object to use.
-    # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-    # request_opts[:not_authorized]:: set true to skip adding authorization
-    #
+    # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+    #                Or an instance of RequestOptions class.
     # === Returns
     # self
     #
@@ -447,11 +435,8 @@ module Qumulo::Rest
     # Perform GET request to fetch the latest resource from the server-side.
     #
     # === Parameters
-    # request_opts:: Hash object to control request details; see http_execute
-    # request_opts[:client]:: (optional) client object to use.
-    # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-    # request_opts[:not_authorized]:: set true to skip adding authorization
-    #
+    # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+    #                Or an instance of RequestOptions class.
     # === Returns
     # self
     #
@@ -466,11 +451,8 @@ module Qumulo::Rest
     # Delete the current resource from the server.
     #
     # === Parameters
-    # request_opts:: Hash object to control request details; see http_execute
-    # request_opts[:client]:: (optional) client object to use.
-    # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-    # request_opts[:not_authorized]:: set true to skip adding authorization
-    #
+    # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+    #                Or an instance of RequestOptions class.
     # === Returns
     # self
     #

@@ -112,10 +112,7 @@ module Qumulo::Rest
       #
       # === Parameters
       # attrs:: attributes to pass to post
-      # request_opts:: Hash object to control request details; see http_execute
-      # request_opts[:client]:: (optional) client object to use.
-      # request_opts[:http_timeout]:: (optional) HTTP request timeout override
-      # request_opts[:not_authorized]:: set true to skip adding authorization
+      # request_opts:: Hash object to feed to RequstOptions constructor.
       #
       # === Returns
       # Returns an instance object of relevant resource class representing
@@ -132,7 +129,7 @@ module Qumulo::Rest
                        "but collection URI requires resolution: #{@uri_spec}")
         end
 
-        self.new().post(attrs)
+        self.new().post(attrs, request_opts)
       end
 
     end
@@ -151,23 +148,12 @@ module Qumulo::Rest
       if @items.nil?
         raise NoData.new("No data has been retrieved yet.", self)
       else
-        @items
+        @items.collect do |hsh|
+          item = self.class.item_class.new
+          item.store_result(:attrs => hsh)
+          item
+        end
       end
-    end
-
-    # === Description
-    # Convert the hash objects in response to proper item class, and store them
-    # in @items.
-    #
-    # === Parameters
-    # items_array:: an array of Hash objects representing the collection
-    #
-    def store_items(items_array)
-      if not self.class.item_class
-          raise ResourceMismatchError.new(
-            "A collection class #{self.class.name} has no item class defined.")
-      end
-      @items = items_array.collect {|hsh| self.class.item_class.new(hsh)}
     end
 
     # === Description
@@ -187,9 +173,13 @@ module Qumulo::Rest
     #
     def store_result(result)
       super
+      if not self.class.item_class
+          raise ResourceMismatchError.new(
+            "A collection class #{self.class.name} has no item class defined.")
+      end
       case @attrs
       when Array
-        store_items(@attrs)
+        @items = @attrs
       when Hash
         if not self.class.items_field
           raise ResourceMismatchError.new(
@@ -200,13 +190,12 @@ module Qumulo::Rest
             "The response does not have expected items_field: #{self.class.items_field}",
             self)
         end
-        items_array = @attrs[self.class.items_field]
-        if not items_array.is_a?(Array)
+        @items = @attrs[self.class.items_field]
+        if not @items.is_a?(Array)
           raise ResourceMismatchError.new(
-            "Expected Array but got #{items_array.inspect} for items_field: #{self.class.items_field}",
+            "Expected Array but got #{@items.inspect} for items_field: #{self.class.items_field}",
             self)
         end
-        store_items(items_array)
       end
       self
     end
@@ -222,7 +211,10 @@ module Qumulo::Rest
     # instance of items class corresponding to the new entry
     #
     def post(payload, request_opts={})
-      payload = payload.as_hash unless payload.is_a?(Hash)
+      if payload.is_a?(Hash)
+        payload = self.class.item_class.new(payload) # apply data type conversion
+      end
+      payload = payload.as_hash
       response = http(request_opts).post(resolved_path, payload)
       new_item = self.class.item_class.new
       new_item.store_result(response)

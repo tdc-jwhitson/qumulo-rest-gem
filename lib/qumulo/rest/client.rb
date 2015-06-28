@@ -1,4 +1,5 @@
 require "qumulo/rest/exception"
+require "qumulo/rest/request_options"
 require "qumulo/rest/validator"
 require "qumulo/rest/http"
 require "qumulo/rest/base"
@@ -26,11 +27,11 @@ module Qumulo::Rest
     # :set_default => true option.
     #
     # === Parameters
-    # opts:: Hash object containing connection information
-    # opts[:addr]:: DNS name or IP address
-    # opts[:port]:: Integer port value
-    # opts[:http_timeout]:: default HTTP request timeout
-    # opts[:http_class]:: set a different HTTP library than Qumulo::Rest::Http
+    # client_opts:: Hash object containing connection information
+    # client_opts[:addr]:: DNS name or IP address
+    # client_opts[:port]:: Integer port value
+    # client_opts[:http_timeout]:: default HTTP request timeout
+    # client_opts[:http_class]:: set a different HTTP library than Qumulo::Rest::Http
     #
     # === Returns
     # A client object (instance of Qumulo::Rest::Client).
@@ -41,10 +42,10 @@ module Qumulo::Rest
     # ConfigError - if client has been configured already
     #               or if invalid configuration options are given.
     #
-    def self.configure(opts)
+    def self.configure(client_opts)
       raise ConfigError.new("Client already configured; " +
         "use Client.unconfigure to change configuration") if @default_client
-      @default_client = self.new(opts)
+      @default_client = self.new(client_opts)
       @default_client
     end
 
@@ -105,26 +106,24 @@ module Qumulo::Rest
     # Constructor for Qumulo::Client
     #
     # === Parameters
-    # opts:: Hash object containing connection information
-    # opts[:addr]:: DNS name or IP address
-    # opts[:port]:: Integer port value [default: 8000]
-    # opts[:http_timeout]:: default HTTP request timeout
-    # opts[:http_class]:: set a different HTTP library than Qumulo::Rest::Http
+    # client_opts:: Hash object containing connection information
+    # client_opts[:addr]:: DNS name or IP address
+    # client_opts[:port]:: Integer port value [default: 8000]
+    # client_opts[:http_timeout]:: default HTTP request timeout
+    # client_opts[:http_class]:: set a different HTTP library than Qumulo::Rest::Http
     #
-    def initialize(opts)
-      @addr = validated_non_empty_string_opt(opts, :addr)
-      @port = validated_positive_int_opt(opts, :port) || 8000
-      @http_timeout = validated_positive_int_opt(opts, :http_timeout) || 30
-      @http_class = opts[:http_class] || Http
+    def initialize(client_opts)
+      @addr = validated_non_empty_string_opt(client_opts, :addr)
+      @port = validated_positive_int_opt(client_opts, :port) || 8000
+      @http_timeout = validated_positive_int_opt(client_opts, :http_timeout) || 30
+      @http_class = client_opts[:http_class] || Http
     end
 
     # === Description
     # Return HTTP request object connected to the client.
     #
     # === Parameters
-    # opts:: HTTP options hash
-    # opts[:http_timeout]:: timeout value in seconds; if not given, use the timeout set in client
-    # opts[:not_authorized]:: set true to skip adding authorization (e.g. for login request)
+    # request_opts:: an instance of RequestOptions class.
     #
     # === Returns
     # An instance of Qumulo::Rest::Http object (or a FakeHttp obect if @http_class is set)
@@ -132,10 +131,11 @@ module Qumulo::Rest
     # === Raises
     # LoginRequired unless a valid login session has been established
     #
-    def http(opts = {})
-      timeout = opts[:http_timeout] || @http_timeout
-      bearer_token = opts[:not_authorized] ? nil : get_bearer_token
-      @http_class.new(@addr, @port, timeout, bearer_token)
+    def http(request_opts = nil)
+      request_opts ||= RequestOptions.new
+      timeout = request_opts.http_timeout || @http_timeout
+      bearer_token = request_opts.not_authorized ? nil : get_bearer_token
+      @http_class.new(@addr, @port, timeout, bearer_token, request_opts)
     end
 
     # === Description

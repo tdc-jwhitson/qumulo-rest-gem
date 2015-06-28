@@ -2,6 +2,7 @@ module Qumulo
   module Rest
     require "qumulo/rest/gem_version"
     require "qumulo/rest/exception"
+    require "qumulo/rest/request_options"
     require "qumulo/rest/validator"
     require "qumulo/rest/client"
     require "qumulo/rest/base"

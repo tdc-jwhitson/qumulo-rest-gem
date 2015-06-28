@@ -1,4 +1,5 @@
 require "qumulo/rest/exception"
+require "qumulo/rest/request_options"
 require "qumulo/rest/validator"
 
 module Qumulo::Rest
@@ -66,13 +67,15 @@ module Qumulo::Rest
     # port:: Qumulo cluster REST API port address (e.g. 8000)
     # timeout:: timeout value in seconds
     # bearer_token:: token to use to authorize against Qumulo cluster
+    # request_opts:: an instance of RequestOptions
     #
-    def initialize(host, port, timeout, bearer_token = nil)
+    def initialize(host, port, timeout, bearer_token, request_opts = nil)
       @host = host
       @port = port
       @open_timeout = timeout
       @read_timeout = timeout
       @bearer_token = bearer_token
+      @request_opts = request_opts
     end
 
     # === Description

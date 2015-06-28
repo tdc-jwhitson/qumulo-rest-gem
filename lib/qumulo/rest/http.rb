@@ -1,6 +1,7 @@
 require "json"
 require "net/http"
 require "net/https"
+require "qumulo/rest/request_options"
 require "qumulo/rest/validator"
 
 module Qumulo::Rest
@@ -20,13 +21,15 @@ module Qumulo::Rest
     # port:: Qumulo cluster REST API port address (e.g. 8000)
     # timeout:: timeout value in seconds
     # bearer_token:: token to use to authorize against Qumulo cluster
+    # request_opts:: an instance of RequestOptions
     #
-    def initialize(host, port, timeout, bearer_token = nil)
+    def initialize(host, port, timeout, bearer_token, request_opts = nil)
       @host = host # validated already in client
       @port = port # validated already in client
       @open_timeout = validated_positive_int(:timeout, timeout)
       @read_timeout = validated_positive_int(:timeout, timeout)
       @bearer_token = bearer_token
+      @request_opts = request_opts
     end
 
     # === Description
@@ -60,6 +63,14 @@ module Qumulo::Rest
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       http.open_timeout = @open_timeout
       http.read_timeout = @read_timeout
+
+      # Print debug information
+      if @request_opts.debug
+        puts "HTTP REQUEST: #{request.method}"
+        puts "HEADERS: \n#{request.to_hash.inspect}"
+        puts "BODY: \n#{request.body}"
+      end
+
       response = http.start {|cx| cx.request(request)}
       result = {:response => response, :code => response.code.to_i}
       result[:body] = response.body # for debugging
@@ -139,7 +150,7 @@ module Qumulo::Rest
     # result Hash object
     #
     def delete(path)
-      http_execute(Net::HTTP::DELETE.new(path))
+      http_execute(Net::HTTP::Delete.new(path))
     end
 
   end
