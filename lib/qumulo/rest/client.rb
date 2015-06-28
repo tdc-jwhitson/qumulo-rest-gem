@@ -113,9 +113,9 @@ module Qumulo::Rest
     # client_opts[:http_class]:: set a different HTTP library than Qumulo::Rest::Http
     #
     def initialize(client_opts)
-      @addr = validated_non_empty_string_opt(client_opts, :addr)
-      @port = validated_positive_int_opt(client_opts, :port) || 8000
-      @http_timeout = validated_positive_int_opt(client_opts, :http_timeout) || 30
+      @addr = validated_non_empty_string(":addr", client_opts[:addr])
+      @port = validated_positive_int(":port", client_opts[:port] || 8000)
+      @http_timeout = validated_positive_int(":http_timeout", client_opts[:http_timeout] || 30)
       @http_class = client_opts[:http_class] || Http
     end
 

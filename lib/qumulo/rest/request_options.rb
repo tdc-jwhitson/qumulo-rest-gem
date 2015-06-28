@@ -1,3 +1,4 @@
+require 'qumulo/rest/validator'
 module Qumulo::Rest
 
   # === Description
@@ -11,6 +12,7 @@ module Qumulo::Rest
   # :not_authorized:: set true to skip adding authorization
   #
   class RequestOptions
+    include Validator
 
     attr_reader :client           # client to use for the HTTP request
     attr_reader :http_timeout     # timeout value for HTTP request
@@ -19,6 +21,7 @@ module Qumulo::Rest
 
     def initialize(hsh = {})
       @client = hsh[:client]
+      validate_instance_of(":client", @client, ::Qumulo::Rest::Client) if @client
       @http_timeout = hsh[:http_timeout]
       @not_authorized = hsh[:not_authorized] ? true : false
       @debug = hsh[:debug] ? true : false

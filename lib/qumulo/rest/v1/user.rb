@@ -18,6 +18,16 @@ module Qumulo::Rest::V1
     field :sid, String
 
     # === Description
+    # Set password for the given user.
+    #
+    # === Parameters
+    # new_password:: String
+    #
+    def set_password(new_password)
+      UserPassword.new(:id => id, :new_password => new_password).post
+    end
+
+    # === Description
     # Returns the list of groups that the user belongs to
     #
     # === Returns
@@ -26,6 +36,18 @@ module Qumulo::Rest::V1
     def groups
       UserGroups.new(:id => id).get.items
     end
+  end
+
+  # == Class Description
+  # Used to set password.
+  #
+  # == Supported Methods
+  # POST
+  #
+  class UserPassword < Qumulo::Rest::Base
+    uri_spec "/v1/auth/users/:id/setpassword"
+    field :id, Bignum
+    field :new_password, String
   end
 
   # == Class Description

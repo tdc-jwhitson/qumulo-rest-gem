@@ -29,9 +29,9 @@ module Qumulo::Rest::V1
     end
 
     def setup
-      addr = ENV['QUMULO_ADDR'] || "localhost"
-      port = (ENV['QUMULO_PORT'] || 8000).to_i
-      Qumulo::Rest::Client.configure(:addr => addr, :port => port)
+      @addr = ENV['QUMULO_ADDR'] || "localhost"
+      @port = (ENV['QUMULO_PORT'] || 8000).to_i
+      Qumulo::Rest::Client.configure(:addr => @addr, :port => @port)
       Qumulo::Rest::Client.login(:username => "admin", :password => "admin")
 
       # Figure out the users group and admin group for use in test cases
@@ -178,6 +178,31 @@ module Qumulo::Rest::V1
       # Make sure that uid was never updated on the server-side
       user_1_c = User.get(:id => user_1_id)
       assert_equal(0, user_1_c.uid)
+
+    end
+
+    def test_user_password
+
+      # Create user
+      user = Users.post(:name => with_prefix("richard"), :primary_group => 513)
+      user.set_password("BeetleJuice")
+
+      # Create a new client, and see if we can login as the user
+      client = Qumulo::Rest::Client.new(:addr => @addr, :port => @port)
+      client.login(:username => with_prefix("richard"), :password => "BeetleJuice")
+      assert_raise Qumulo::Rest::AuthenticationError do
+        client.login(:username => with_prefix("richard"), :password => "BeetleJuice-2")
+      end
+
+      # Change password, and you should be able to login using a different password
+      user.set_password("BeetleJuice-2")
+      client.login(:username => with_prefix("richard"), :password => "BeetleJuice-2")
+
+      # Use the client to retrieve groups
+      groups = Groups.get({}, {:client => client}).items
+      names = groups.collect {|group| group.name}
+      assert(names.include?("Users"))
+      assert(names.include?("Guests"))
 
     end
 

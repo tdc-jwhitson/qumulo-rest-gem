@@ -45,23 +45,5 @@ module Qumulo::Rest
       arg
     end
 
-    # === Description
-    # Some meta programming to help define methods that get arguments from option Hash.
-    #
-    def self.option_support(validator_name)
-      define_method(validator_name.to_s + "_opt") do |hsh, key|
-        if hsh.key?(key)
-          send(validator_name, ":" + key.to_s, hsh[key])
-        else
-          nil
-        end
-      end
-    end
-
-    option_support :validated_method_sym       # = validated_method_sym_opt
-    option_support :validated_string           # = validated_string_opt
-    option_support :validated_non_empty_string # = validated_non_emtpy_string_opt
-    option_support :validated_positive_int     # = validated_positive_int_opt
-
   end
 end
