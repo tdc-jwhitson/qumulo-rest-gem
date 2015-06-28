@@ -66,9 +66,7 @@ module Qumulo::Rest
 
       # Print debug information
       if @request_opts.debug
-        puts "HTTP REQUEST: #{request.method}"
-        puts "HEADERS: \n#{request.to_hash.inspect}"
-        puts "BODY: \n#{request.body}"
+        http.set_debug_output($stderr)
       end
 
       response = http.start {|cx| cx.request(request)}
