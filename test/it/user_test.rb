@@ -181,10 +181,47 @@ module Qumulo::Rest::V1
 
     end
 
-    def test_user_add_remove_group
-    end
+    def test_group_membership
 
-    def test_group_add_remove_user
+      # Create groups and users
+      g1 = Groups.post(:name => with_prefix("G1"))
+      g2 = Groups.post(:name => with_prefix("G2"))
+      g3 = Groups.post(:name => with_prefix("G3"))
+      u1 = Users.post(:name => with_prefix("U1"), :primary_group => 513)
+      u2 = Users.post(:name => with_prefix("U2"), :primary_group => 513)
+      u3 = Users.post(:name => with_prefix("U3"), :primary_group => 513)
+
+      # Add users 1, 2 to group 1
+      g1.add(u1)    # this uses GroupMembers.post
+      g1.add(u2)    # this uses GroupMembers.post
+      g1.users.each do |user|
+        assert([u1.id, u2.id].include?(user.id))
+      end
+      assert_equal(2, g1.users.length)
+
+      # Add user 3 to group 2, 3
+      g2.add(u3)
+      g2.users.each do |user|
+        assert_equal(u3.id, user.id)
+      end
+      g3.add(u3)
+      g3.users.each do |user|
+        assert_equal(u3.id, user.id)
+      end
+      u3.groups.each do |group|
+        assert([513, g2.id, g3.id].include?(group.id))
+      end
+      assert_equal(3, u3.groups.length)
+
+      # Remove user 2 from group 1, and add the user to group 2
+      g1.remove(u2)
+      assert_equal(1, g1.users.length)
+      g2.add(u2)
+      assert_equal(2, g2.users.length)
+      g2.users.each do |user|
+        assert([u2.id, u3.id].include?(user.id))
+      end
+
     end
 
   end

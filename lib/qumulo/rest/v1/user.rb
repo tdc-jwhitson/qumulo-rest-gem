@@ -16,6 +16,16 @@ module Qumulo::Rest::V1
     field :primary_group, Bignum
     field :uid, Bignum       # NFS uid
     field :sid, String
+
+    # === Description
+    # Returns the list of groups that the user belongs to
+    #
+    # === Returns
+    # An array of Group objects
+    #
+    def groups
+      UserGroups.new(:id => id).get.items
+    end
   end
 
   # == Class Description
@@ -53,56 +63,6 @@ module Qumulo::Rest::V1
   end
 
   # == Class Description
-  # Represents the list of members of the given group
-  #
-  # == Supported Methods
-  # GET, POST
-  #
-  class GroupMembers < Qumulo::Rest::BaseCollection
-    uri_spec "/v1/auth/groups/:id/members/"
-    field :id, Bignum
-    items User
-
-    # === Description
-    # Override the normal POST method to use the payload format required by
-    # qfsd.
-    #
-    # === Parameters
-    # payload:: New member to create.  You can pass a User object, or
-    #           a simple hash that has the following format:
-    #           {
-    #             :group_id => <group id integer>,
-    #             :user_id => <user ID integer> }
-    #           }
-    # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
-    #                Or an instance of RequestOptions class.
-    #
-    # === Returns
-    # User object
-    #
-    def post(payload, request_opts={})
-
-      if payload.is_a?(User)
-        payload = { :group_id => self.id, :user_id => payload.id }
-      else
-        if payload.is_a?(Hash)
-          unless payload[:group_id].is_a?(Integer)
-            raise DataTypeError.new("Hash object missing :group_id field")
-          end
-          unless payload[:user_id].is_a?(Integer)
-            raise DataTypeError.new("Hash object missing :user_id field")
-          end
-        else
-          raise DataTypeError.new("User object or a Hash object required")
-        end
-      end
-
-      http(request_opts).post(resolved_path, payload)
-    end
-
-  end
-
-  # == Class Description
   # Represents a group.
   #
   # == Supported Methods
@@ -114,6 +74,37 @@ module Qumulo::Rest::V1
     field :name, String
     field :gid, String # NFS gid (XXX steve - this should be Integer, like uid, but it's not)
     field :sid, String
+
+    # === Description
+    # Returns the list of users that belong to the current group.
+    #
+    # === Returns
+    # An array of User objects
+    #
+    def users
+      GroupMembers.new(:id => id).get.items
+    end
+
+    # === Description
+    # Add a user to the group
+    #
+    # === Parameters
+    # user:: User object to add to the group
+    #
+    def add(user)
+      GroupMembers.new(:id => id).post(user)
+    end
+
+    # === Description
+    # Remove a user from the group
+    #
+    # === Parameters
+    # user:: User object to remove from the group
+    #
+    def remove(user)
+      GroupMember.new(:group_id => id, :member_id => user.id).delete
+    end
+
   end
 
   # == Class Description
@@ -123,6 +114,64 @@ module Qumulo::Rest::V1
   # GET, POST
   class Groups < Qumulo::Rest::BaseCollection
     uri_spec "/v1/auth/groups/"
+    items Group
+  end
+
+  # == Class Description
+  # This class is used to GET the list the users that belong to a group,
+  # or add a user to a group via POST.
+  #
+  # == Supported Methods
+  # GET, POST
+  #
+  class GroupMembers < Qumulo::Rest::BaseCollection
+    uri_spec "/v1/auth/groups/:id/members/"
+    field :id, Bignum    # group ID
+    items User
+
+    # === Description
+    # Override the normal POST method to use the payload format required by
+    # qfsd.
+    #
+    # === Parameters
+    # member:: User object
+    # request_opts:: Hash object to feed to RequstOptions constructor. (see RequestOptions)
+    #                Or an instance of RequestOptions class.
+    #
+    # === Returns
+    # User object
+    #
+    def post(member, request_opts={})
+      unless member.is_a?(User)
+        raise DataTypeError.new("User object is expected, but got [#{member.inspect}]")
+      end
+      member = GroupMember.new(:group_id => self.id, :member_id => member.id)
+      http(request_opts).post(resolved_path, member.as_hash)
+    end
+
+  end
+
+  # == Class Description
+  # This class is used to remove a member from a group.
+  #
+  # == Supported Methods
+  # DELETE
+  #
+  class GroupMember < Qumulo::Rest::Base
+    uri_spec "/v1/auth/groups/:group_id/members/:member_id"
+    field :group_id, Bignum   # group ID
+    field :member_id, Bignum  # same as user ID
+  end
+
+  # == Class Description
+  # This class is used to list the groups that a user belongs to.
+  #
+  # == Supported Methods
+  # GET
+  #
+  class UserGroups < Qumulo::Rest::BaseCollection
+    uri_spec "/v1/auth/users/:id/groups/"
+    field :id, Bignum    # user ID
     items Group
   end
 
