@@ -13,6 +13,7 @@ module Qumulo::Rest
     uri_spec "/v1/fans/:id"
     field :id, String
     field :name, String
+    field :fan_club_member, Boolean
   end
 
   class Fans < Qumulo::Rest::BaseCollection
@@ -70,7 +71,7 @@ module Qumulo::Rest
           "algorithm" => "fake-algorithm",
           "bearer_token" => "1:fake-token"
         }})
-      Client.configure(:http_class => FakeHttp)
+      Client.configure(:addr => "fakeaddr", :port => 8000, :http_class => FakeHttp)
       Client.login(:username => "fakeuser", :password => "fakepass")
     end
 
@@ -84,7 +85,8 @@ module Qumulo::Rest
                         :money_earned => 10000000000000000000000000000000000,
                         :song_count => 3, :songs => ["ding", "dong", "there"],
                         :meta => {"info" => "something", "publisher" => "dd"},
-                        :biggest_fan => Fan.new("id" => "30", "name" => "Bonny"),
+                        :biggest_fan => Fan.new("id" => "30", "name" => "Bonny",
+                        "fan_club_member" => true),
                         :best_song => Song.new("album" => "10", "title" => "ding",
                           "lyrics" => "ding ding ding", "artist" => "Sting")
                         )
@@ -104,6 +106,7 @@ module Qumulo::Rest
       fan = album.biggest_fan
       assert_equal("30", fan.id)
       assert_equal("Bonny", fan.name)
+      assert_equal(true, fan.fan_club_member)
 
       song = album.best_song
       assert_equal("10", song.album)
@@ -122,6 +125,7 @@ module Qumulo::Rest
 
       fan.id = "40"
       fan.name = "f"
+      fan.fan_club_member = false
       album.biggest_fan = fan
 
       song.title = "who"
@@ -137,7 +141,8 @@ module Qumulo::Rest
         "songs" => ["going", "down"],                   # Array is stored as is
         "meta" => {"info"=>"not much"},                 # Hash is stored as is
         "random" => 12,                                 # no type means no validation
-        "biggest_fan" => {"id" => "40", "name" => "f"}, # Base-derived objects turn into Hash
+        "biggest_fan" => {"id" => "40", "name" => "f",
+            "fan_club_member" => false},                # Base-derived objects turn into Hash
         "best_song" => {"album" => "10",
             "title" => "who", "lyrics" => "who who who",
             "artist" => "Sting"}
@@ -247,7 +252,7 @@ module Qumulo::Rest
           "algorithm" => "fake-algorithm",
           "bearer_token" => "1:fake-token"
         }})
-      Client.configure(:http_class => FakeHttp)
+      Client.configure(:addr => "fakeaddr", :port => 8000, :http_class => FakeHttp)
       Client.login(:username => "fakeuser", :password => "fakepass")
     end
 
@@ -307,9 +312,9 @@ module Qumulo::Rest
           "next" => "/v1/fans/?after=3302&page_size=3",
           "prev" => "/v1/fans/?before=4901&page_size=3",
           "fans" => [
-            {"id" => "4901", "name" => "Sandy"},
-            {"id" => "1010", "name" => "Jodie"},
-            {"id" => "3302", "name" => "Barry"}
+            {"id" => "4901", "name" => "Sandy", "fan_club_member" => true},
+            {"id" => "1010", "name" => "Jodie", "fan_club_member" => true},
+            {"id" => "3302", "name" => "Barry", "fan_club_member" => false}
           ]}})
 
       # Verify that a collection returns instances of items class
@@ -335,9 +340,9 @@ module Qumulo::Rest
             "next" => "/v1/fans/?after=3302&page_size=3",
             "prev" => "/v1/fans/?before=4901&page_size=3",
             "entries" => [ # ERROR! key should have been "fans"
-              {"id" => "4901", "name" => "Sandy"},
-              {"id" => "1010", "name" => "Jodie"},
-              {"id" => "3302", "name" => "Barry"}
+              {"id" => "4901", "name" => "Sandy", "fan_club_member" => true},
+              {"id" => "1010", "name" => "Jodie", "fan_club_member" => true},
+              {"id" => "3302", "name" => "Barry", "fan_club_member" => false}
             ]}})
       end
     end
@@ -354,11 +359,12 @@ module Qumulo::Rest
       # Post using instance method
       FakeHttp.set_fake_response(:post, "/v1/fans/", {
           :code => 203,
-          :attrs => {"id" => "13", "name" => "Dmitri"}})
+          :attrs => {"id" => "13", "name" => "Dmitri", "fan_club_member" => true}})
       fans = Fans.new
       new_fan = fans.post(:name => "Dmitri")
       assert_equal("13", new_fan.id)
       assert_equal("Dmitri", new_fan.name)
+      assert_equal(true, new_fan.fan_club_member)
 
       # Post using class method
       FakeHttp.set_fake_response(:post, "/v1/fans/", {
@@ -367,6 +373,8 @@ module Qumulo::Rest
       new_fan = Fans.post(:name => "Igor")
       assert_equal("12", new_fan.id)
       assert_equal("Igor", new_fan.name)
+      # if an attribute was never returned from the server, it's value is nil.
+      assert_equal(nil, new_fan.fan_club_member)
 
       # Post using class method, and an instance of item class
       FakeHttp.set_fake_response(:post, "/v1/fans/", {

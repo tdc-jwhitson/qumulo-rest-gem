@@ -6,6 +6,11 @@ require "qumulo/rest/request_options"
 module Qumulo::Rest
 
   # == Class Description
+  # There is no such thing as "boolean" type in Ruby.  This class provides something
+  # to put into "field" declaration in resource classes.
+  class Boolean; end
+
+  # == Class Description
   # All other RESTful resource classes inherit from this class.
   # This class takes care of the following:
   # * DSL for defining RESTful resource
@@ -80,9 +85,11 @@ module Qumulo::Rest
       # --------------------------+----------------------------------------------
       # Integer (Fixnum)          | Integer
       # --------------------------+----------------------------------------------
-      # DateTime                  | String, like "2015-06-06T01:15:53.312045459Z"
-      # --------------------------+----------------------------------------------
       # Bignum                    | String, like "10000000000000000000000000"
+      # --------------------------+----------------------------------------------
+      # Boolean                   | Boolean
+      # --------------------------+----------------------------------------------
+      # DateTime                  | String, like "2015-06-06T01:15:53.312045459Z"
       # --------------------------+----------------------------------------------
       # Class derived from Base   | Hash - what gets returned with .as_hash
       # --------------------------+----------------------------------------------
@@ -107,7 +114,7 @@ module Qumulo::Rest
         # Define getter
         define_method(name) do
           json_val = @attrs[name_s]
-          if [String, Integer, Array, Hash].include?(type)
+          if [String, Integer, Boolean, Array, Hash].include?(type)
             json_val
           elsif type == Bignum
             json_val.to_i       # Ruby handles 64-bit integers seemlessly using Bignum
@@ -124,14 +131,16 @@ module Qumulo::Rest
         define_method(name_s + "=") do |val|
 
           if not type.nil? and not val.is_a?(type)
-            unless type == Bignum and val.is_a?(Fixnum)
+            unless ((type == Bignum and val.is_a?(Fixnum)) or
+                    (type == Boolean and val == true) or
+                    (type == Boolean and val == false))
               raise DataTypeError.new(
                 "Unexpected type: #{val.class.name} (#{val.inspect}) for #{name} " +
                 "[required: #{type}]")
             end
           end
 
-          if [nil, String, Integer, Array, Hash].include?(type)
+          if [nil, String, Integer, Boolean, Array, Hash].include?(type)
             @attrs[name_s] = val
           elsif type == Bignum
             @attrs[name_s] = val.to_s
