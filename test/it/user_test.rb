@@ -4,18 +4,8 @@ require 'qumulo/rest'
 require 'qumulo/rest/v1/user'
 
 module Qumulo::Rest::V1
-  class LoginTest < Test::Unit::TestCase
-    include Qumulo::Rest::ReadEnv
-
-    INTEGRATION_TEST_PREFIX = "integration test object "
-
-    def with_prefix(name)
-      "integration test " + name
-    end
-
-    def has_prefix?(name)
-      name =~ /^integration test /
-    end
+  class UserTest < Test::Unit::TestCase
+    include Qumulo::Rest::TestEnv
 
     def clean_up_integration_test_objects
       Users.get.items.each do |user|
