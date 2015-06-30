@@ -1,4 +1,5 @@
 require "test/unit"
+require "test_env"
 require "date"
 require "fake_http"
 require "net/http"
@@ -61,22 +62,14 @@ module Qumulo::Rest
   end
 
   class BaseTest < Test::Unit::TestCase
+    include TestEnv
 
     def setup
-      FakeHttp.set_fake_response(:post, "/v1/login", {
-        :code => 203,
-        :attrs => {
-          "key" => "fake-key",
-          "key_id" => "fake-key-id",
-          "algorithm" => "fake-algorithm",
-          "bearer_token" => "1:fake-token"
-        }})
-      Client.configure(:addr => "fakeaddr", :port => 8000, :http_class => FakeHttp)
-      Client.login(:username => "fakeuser", :password => "fakepass")
+      set_up_fake_connection
     end
 
     def teardown
-      Client.unconfigure
+      tear_down_fake_connection
     end
 
     def test_accessors_success
@@ -242,22 +235,14 @@ module Qumulo::Rest
   end
 
   class BaseCollectionTest < Test::Unit::TestCase
+    include TestEnv
 
     def setup
-      FakeHttp.set_fake_response(:post, "/v1/login", {
-        :code => 203,
-        :attrs => {
-          "key" => "fake-key",
-          "key_id" => "fake-key-id",
-          "algorithm" => "fake-algorithm",
-          "bearer_token" => "1:fake-token"
-        }})
-      Client.configure(:addr => "fakeaddr", :port => 8000, :http_class => FakeHttp)
-      Client.login(:username => "fakeuser", :password => "fakepass")
+      set_up_fake_connection
     end
 
     def teardown
-      Client.unconfigure
+      tear_down_fake_connection
     end
 
     def test_bare_array_collection_success

@@ -55,7 +55,7 @@ module Qumulo::Rest
       # and return a JSON dictionary on GET operation, like this:
       #
       # {
-      #   "items": [
+      #   "entries": [
       #     {
       #        "id": "10",
       #        "fname": "John",
@@ -84,7 +84,7 @@ module Qumulo::Rest
       #
       # class PersonCollection
       #   uri_spec "/v1/persons/"
-      #   items Person, :field => "items"
+      #   items Person, :field => :entries
       #   field :total, Integer
       #   field :page, Integer
       #   field :page_size, Integer
@@ -95,8 +95,9 @@ module Qumulo::Rest
       def items(item_class, opts = {})
         @item_class = item_class
         if opts[:field]
-          @items_field = opts[:field].to_s
-          field opts[:field], Array # define the field so that getter/setter works
+          @items_field = opts[:field]
+          # define the field so that getter/setter works
+          field opts[:field], array_of(@item_class)
         end
       end
 
@@ -185,12 +186,12 @@ module Qumulo::Rest
           raise ResourceMismatchError.new(
             "Received a response dictionary, but collection class has no items_field.")
         end
-        if not @attrs.key?(self.class.items_field)
+        if not @attrs.key?(self.class.items_field.to_s)
           raise ResourceMismatchError.new(
             "The response does not have expected items_field: #{self.class.items_field}",
             self)
         end
-        @items = @attrs[self.class.items_field]
+        @items = @attrs[self.class.items_field.to_s]
         if not @items.is_a?(Array)
           raise ResourceMismatchError.new(
             "Expected Array but got #{@items.inspect} for items_field: #{self.class.items_field}",
@@ -214,8 +215,9 @@ module Qumulo::Rest
       if payload.is_a?(Hash)
         payload = self.class.item_class.new(payload) # apply data type conversion
       end
+      qs = payload.query_string_params
       payload = payload.as_hash
-      response = http(request_opts).post(resolved_path, payload)
+      response = http(request_opts).post(resolved_path + qs, payload)
       new_item = self.class.item_class.new
       new_item.store_result(response)
       new_item

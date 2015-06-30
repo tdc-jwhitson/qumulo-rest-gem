@@ -1,3 +1,4 @@
+require "cgi"
 require "date"
 require "qumulo/rest/validator"
 require "qumulo/rest/request_options"
@@ -9,6 +10,94 @@ module Qumulo::Rest
   # There is no such thing as "boolean" type in Ruby.  This class provides something
   # to put into "field" declaration in resource classes.
   class Boolean; end
+
+  # == Class Description
+  # Special data type specified for "query string parameter" key or value.
+  # This data type only allows the following characters:
+  #
+  #   0-9, a-z, A-Z, or + - % . *
+  #
+  # This string is not URL encoded, and used as is. (so the caller must URL encode
+  # any special characters that they want to pass as query string parameters)
+  class QueryString < String
+    class << self
+      include Validator
+
+      # === Description
+      # Convert a query string parameter key (such as "page-size") to a valid Ruby
+      # accessor method name (such as "page_size").
+      #
+      # === Parameters
+      # name:: String to use for query string parameter key
+      #
+      def get_accessor_name(name)
+
+        unless name.is_a?(String)
+          raise ArgumentError.new(
+            "Unexpected key: [#{name.inspect}] [required data type: String]")
+        end
+
+        unless name =~ /^[0-9a-zA-Z\-]+$/
+          raise ArgumentError.new(
+            "A query string parameter key cannot contain characters " +
+            "other than 0-9, a-z, A-Z or -.")
+        end
+
+        name.gsub("-", "_")
+
+      end
+
+      # === Description
+      # Convert Ruby value into a value that we can append to URI.
+      #
+      # === Parameters
+      # val:: String, ruby value to send as part of query string
+      #
+      def payload_format(val)
+        CGI.escape(validated_string("query string", val))
+      end
+
+      # === Description
+      # Convert payload (a query string parameter component) to normal Ruby string.
+      #
+      # === Parameters
+      # val:: String, CGI-escaped string to convert to noraml as Ruby string
+      #
+      def ruby_format(val)
+        CGI.unescape(validated_string("query string", val))
+      end
+
+    end
+  end
+
+  # == Class Description
+  # A special class used to describe an Array field with pre-determined type.
+  # The @element_type indicates what elements the array field must have.
+  #
+  class TypedArray < Array
+    NATIVE_FIELD_TYPES = [
+      String,
+      Integer,
+      Bignum,
+      DateTime,
+      Boolean,
+      Array,
+      Hash
+    ]
+
+    class << self
+      attr_reader :element_type
+      def set_element_type(element_type)
+        unless NATIVE_FIELD_TYPES.include?(element_type) or element_type < Base
+          raise DataTypeError.new(
+            "Unacceptable element_type #{element_type.inspect}; " +
+            "it must be one of #{NATIVE_FIELD_TYPES.inspect} or " +
+            "a type derived from Qumulo::Rest::Base")
+        end
+        @element_type = element_type
+      end
+    end
+  end
 
   # == Class Description
   # All other RESTful resource classes inherit from this class.
@@ -26,6 +115,10 @@ module Qumulo::Rest
     #
     class << self
       include Qumulo::Rest::Validator
+
+      # Class accessors
+      attr_reader :query_params_class
+      attr_reader :result_class
 
       # === Description
       # Set the client class once the client class gets loaded.
@@ -59,10 +152,37 @@ module Qumulo::Rest
 
       # === Description
       # This method can be used against a drived class to get the @uri_spec
-      # instance variable set using .path method above.
+      # instance variable set using .uri_spec method above. Note that you can't
+      # define an attr_reader for this, since "uri_spec" is already a setter.
       #
       def get_uri_spec
         @uri_spec
+      end
+
+      # === Description
+      # Returns a new class that inherits from TypedArray.  You can then set the
+      # element type on it to indicate the element type.  This is useful when
+      # defining a resource class that contains array fields that contain complex
+      # objects in an array.  For example, you can declare NfsExport class as follows:
+      #
+      #    class NfsRestriction
+      #      field :host_restrictions, array_of(String)
+      #      field :read_only, Boolean
+      #      field :user_mapping, String
+      #      field :map_to_user_id, Bignum
+      #    end
+      #
+      #    class NfsExport < Base
+      #      field :id
+      #      field :export_path
+      #      field :fs_path
+      #      field :restrictions, array_of(NfsRestriction)
+      #    end
+      #
+      def array_of(type)
+        new_class = Class.new(TypedArray)
+        new_class.set_element_type(type)
+        new_class
       end
 
       # === Description
@@ -97,6 +217,9 @@ module Qumulo::Rest
       # --------------------------+----------------------------------------------
       # Array (untyped)           | Array, with arbitrary content
       # --------------------------+----------------------------------------------
+      # array_of(element_type)    | Array, with hash object that represents the
+      #                           | given element type
+      # --------------------------+----------------------------------------------
       #
       # Note that you can use Hash or Array to use a fragment of JSON dictionary
       # without any conversion or validation.  This is a good way to deal with a
@@ -111,8 +234,20 @@ module Qumulo::Rest
 
         name_s = name.to_s
 
+        # XXX REFACTORING TASK
+        # Instead of if/elif statements below, we should really define classes
+        # that can take care of validation and value conversions.  See example of QueryString
+        # below.  The interface should provide .ruby_format() and .payload_format() methods.
+
         # Define getter
         define_method(name) do
+
+          # Query string parameter is special in that its value comes from @query, not @attrs
+          if type == QueryString
+            return QueryString.ruby_format(@query[opts[:key_name]])
+          end
+
+          # All other field values come out of @attrs and then gets translated
           json_val = @attrs[name_s]
           if [String, Integer, Boolean, Array, Hash].include?(type)
             json_val
@@ -120,6 +255,12 @@ module Qumulo::Rest
             json_val.to_i       # Ruby handles 64-bit integers seemlessly using Bignum
           elsif type == DateTime
             DateTime.parse(json_val)
+          elsif type < TypedArray
+            json_val.collect do |elt|
+              entry = type.element_type.new
+              entry.store_attrs(elt)
+              entry
+            end
           elsif type and type < Base     # if type is derived from Base
             type.new(json_val)
           else
@@ -130,13 +271,17 @@ module Qumulo::Rest
         # Define setter
         define_method(name_s + "=") do |val|
 
+          # XXX REFACTORING TASK
+          # This check should move into individual field type classes
           if not type.nil? and not val.is_a?(type)
             unless ((type == Bignum and val.is_a?(Fixnum)) or
                     (type == Boolean and val == true) or
-                    (type == Boolean and val == false))
+                    (type == Boolean and val == false) or
+                    (type == QueryString and val.is_a?(String)) or
+                    (type < TypedArray and val.is_a?(Array)))
               raise DataTypeError.new(
                 "Unexpected type: #{val.class.name} (#{val.inspect}) for #{name} " +
-                "[required: #{type}]")
+                "[required data type: #{type}]")
             end
           end
 
@@ -146,14 +291,47 @@ module Qumulo::Rest
             @attrs[name_s] = val.to_s
           elsif type == DateTime
             @attrs[name_s] = val.strftime("%Y-%m-%dT%H:%M:%S.%NZ")
+          elsif type < TypedArray
+            @attrs[name_s] = val.collect do |elt|
+              if elt.is_a?(type.element_type)
+                elt.as_hash
+              else
+                raise DataTypeError.new(
+                  "Unexected element #{elt.inspect} detected for #{name} array " +
+                  "[required element type: #{type.element_type}]")
+              end
+            end
           elsif type and type < Base
             @attrs[name_s] = val.as_hash
+          elsif type == QueryString
+            @query[opts[:key_name]] = QueryString.payload_format(val)
           else
             raise DataTypeError.new(
               "Cannot store: #{val.inspect} into attribute: #{name} " +
-              "[requires: #{type}]")
+              "[requires data type: #{type}]")
           end
         end
+      end
+
+      # === Description
+      # Define query string parameters that are relevant for the given resource.
+      #
+      # === Parameters
+      # key:: String, for the query string parameter key,
+      #               e.g. like "allow-fs-path-create" or "page-size"
+      #
+      # === Notes
+      # The value of a query string parameter is always a String.  The string
+      # will be URL encoded before being sent in the HTTP request.
+      #
+      def query_param(key_name)
+
+        # Turn the string into a valid Ruby accessor name: replace "-" with "_"
+        accessor_name = QueryString.get_accessor_name(key_name)
+
+        # Create a new class that represents query string parameters
+        field accessor_name, QueryString, :key_name => key_name
+
       end
 
       # === Description
@@ -169,13 +347,6 @@ module Qumulo::Rest
         else
           raise DataTypeError.new("#{cls.inspect} is not derived from Qumulo::Rest::Base.")
         end
-      end
-
-      # === Description
-      # Return the result class closest to the current derived class.
-      #
-      def result_class
-        @result_class
       end
 
       # --------------------------------------------------------------------------
@@ -198,8 +369,9 @@ module Qumulo::Rest
       def resolve_path(path, kv)
         validate_instance_of(:kv, kv, Hash)
         resolved = []
+        # When splitting path, preserve the trailing slash (hence, -1)
         path.split('/', -1).each do |part|
-          resolved_part = (part =~ /^:/) ? kv[part.sub(/^:/, '')].to_s : part
+          resolved_part = (part =~ /^:/) ? CGI.escape(kv[part.sub(/^:/, '')].to_s) : part
           if (part != "" and resolved_part == "")
             throw UriError.new("Cannot resolve #{part} in path #{path} from #{kv.inspect}")
           end
@@ -290,6 +462,7 @@ module Qumulo::Rest
     attr_reader :code
     attr_reader :attrs
     attr_reader :body
+    attr_reader :query
 
     # === Description
     # Take attributes and stores as instance variable.
@@ -304,6 +477,7 @@ module Qumulo::Rest
     def initialize(src_obj = {})
       if src_obj.is_a?(Hash)
         # convert symbol keys to string keys
+        @query = {}
         @attrs = {}
         src_obj.each do |k, v|
           self.send(k.to_s + "=", v)
@@ -312,6 +486,7 @@ module Qumulo::Rest
         @error = nil
         @response = nil
       else
+        @query = src_obj.instance_variable_get("@query")
         @attrs = src_obj.instance_variable_get("@attrs")
         @body = src_obj.instance_variable_get("@body")
         @error = src_obj.instance_variable_get("@error")
@@ -328,6 +503,19 @@ module Qumulo::Rest
     #
     def error?
       not @error.nil?
+    end
+
+    # === Description
+    # Generate query string parameters string based on @query; The values and keys
+    # are already URL encoded already, so no need to URL encode them again after this.
+    #
+    # === Returns
+    # String, query string to attach to URL
+    #
+    def query_string_params
+      str = @query.collect {|k, v| "#{k}=#{v}"}.join("&")
+      str = "?" + str unless str.empty?
+      str
     end
 
     # === Description
@@ -370,7 +558,7 @@ module Qumulo::Rest
     # and it invokes class method "resolve_path" to do this.
     #
     def resolved_path()
-      self.class.resolve_path(self.class.get_uri_spec, @attrs)
+      self.class.resolve_path(self.class.get_uri_spec, @attrs) + query_string_params
     end
 
     # === Description
@@ -406,6 +594,17 @@ module Qumulo::Rest
       else
         self
       end
+    end
+
+    # === Description
+    # Directly set @attrs based on JSON payload.  This is used to store results
+    # for nested secondary objects that are found in nested arrays.
+    #
+    # === Parameters
+    # hsh:: Hash object directly decoded from JSON
+    #
+    def store_attrs(hsh = {})
+      @attrs = hsh
     end
 
     # === Description

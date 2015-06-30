@@ -4,7 +4,7 @@ require 'qumulo/rest'
 
 module Qumulo::Rest
   class LoginTest < Test::Unit::TestCase
-    include Qumulo::Rest::ReadEnv
+    include TestEnv
 
     def setup
       connection_params_from_env # sets @username, @password, @addr, @port

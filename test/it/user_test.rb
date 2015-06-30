@@ -9,12 +9,12 @@ module Qumulo::Rest::V1
 
     def clean_up_integration_test_objects
       Users.get.items.each do |user|
-        if has_prefix?(user.name)
+        if has_test_prefix?(user.name)
           user.delete
         end
       end
       Groups.get.items.each do |group|
-        if has_prefix?(group.name)
+        if has_test_prefix?(group.name)
           group.delete
         end
       end
@@ -46,23 +46,23 @@ module Qumulo::Rest::V1
     def test_user_crud
 
       # Create by posting a Hash to collection class
-      user = Users.post(:name => with_prefix("richard"), :primary_group => 513)
+      user = Users.post(:name => with_test_prefix("richard"), :primary_group => 513)
       user_1_id = user.id
 
       # Create by posting an instance to collection class
-      template = User.new(:name => with_prefix("becky"), :primary_group => 513)
+      template = User.new(:name => with_test_prefix("becky"), :primary_group => 513)
       user = Users.post(template)
       user_2_id = user.id
 
       # Read using collection
       user_1 = Users.get.items.select {|u| u.id == user_1_id}[0]
-      assert_equal(with_prefix("richard"), user_1.name)
+      assert_equal(with_test_prefix("richard"), user_1.name)
       assert_equal(513, user_1.primary_group)
       assert_equal(0, user_1.uid)
 
       # Read using class
       user_2 = User.get(:id => user_2_id)
-      assert_equal(with_prefix("becky"), user_2.name)
+      assert_equal(with_test_prefix("becky"), user_2.name)
       assert_equal(513, user_2.primary_group)
       assert_equal(0, user_2.uid)
 
@@ -71,16 +71,16 @@ module Qumulo::Rest::V1
       user_1.put
       user_1 = User.get(:id => user_1_id)
       assert_equal(user_1_id, user_1.id)
-      assert_equal(with_prefix("richard"), user_1.name)
+      assert_equal(with_test_prefix("richard"), user_1.name)
       assert_equal(513, user_1.primary_group)
       assert_equal(499, user_1.uid)
 
       # Update using class (no ETAG is applied)
-      User.put(:id => user_2_id, :name => with_prefix("becky"),
+      User.put(:id => user_2_id, :name => with_test_prefix("becky"),
         :primary_group => 513, :uid => 498)
       user_2 = User.get(:id => user_2_id)
       assert_equal(user_2_id, user_2.id)
-      assert_equal(with_prefix("becky"), user_2.name)
+      assert_equal(with_test_prefix("becky"), user_2.name)
       assert_equal(513, user_2.primary_group)
       assert_equal(498, user_2.uid)
 
@@ -99,22 +99,22 @@ module Qumulo::Rest::V1
     def test_group_crud
 
       # Create by posting a Hash to collection class
-      group = Groups.post(:name => with_prefix("G1"))
+      group = Groups.post(:name => with_test_prefix("G1"))
       group_1_id = group.id
 
       # Create by posting an instance to collection class
-      template = Group.new(:name => with_prefix("G2"))
+      template = Group.new(:name => with_test_prefix("G2"))
       group = Groups.post(template)
       group_2_id = group.id
 
       # Read using collection
       group_1 = Groups.get.items.select {|group| group.id == group_1_id}[0]
-      assert_equal(with_prefix("G1"), group_1.name)
+      assert_equal(with_test_prefix("G1"), group_1.name)
       assert_equal("", group_1.gid)
 
       # Read using class
       group_2 = Group.get(:id => group_2_id)
-      assert_equal(with_prefix("G2"), group_2.name)
+      assert_equal(with_test_prefix("G2"), group_2.name)
       assert_equal("", group_2.gid)
 
       # Update using instance (uses the ETAG)
@@ -122,14 +122,14 @@ module Qumulo::Rest::V1
       group_1.put
       group_1 = Group.get(:id => group_1_id)
       assert_equal(group_1_id, group_1.id)
-      assert_equal(with_prefix("G1"), group_1.name)
+      assert_equal(with_test_prefix("G1"), group_1.name)
       assert_equal("499", group_1.gid)
 
       # Update using class (no ETAG is applied)
-      Group.put(:id => group_2_id, :name => with_prefix("G2"), :gid => "498")
+      Group.put(:id => group_2_id, :name => with_test_prefix("G2"), :gid => "498")
       group_2 = Group.get(:id => group_2_id)
       assert_equal(group_2_id, group_2.id)
-      assert_equal(with_prefix("G2"), group_2.name)
+      assert_equal(with_test_prefix("G2"), group_2.name)
       assert_equal("498", group_2.gid)
 
       # Delete using instance or class
@@ -147,7 +147,7 @@ module Qumulo::Rest::V1
     def test_etag_mismatch
 
       # Create user
-      user = Users.post(:name => with_prefix("richard"), :primary_group => 513)
+      user = Users.post(:name => with_test_prefix("richard"), :primary_group => 513)
       user_1_id = user.id
 
       # Read user (we are about to update user 1)
@@ -156,10 +156,10 @@ module Qumulo::Rest::V1
 
       # Another client updates user 1
       user_1_b = User.get(:id => user_1_id)
-      user_1_b.name = with_prefix("richard III")
+      user_1_b.name = with_test_prefix("richard III")
       user_1_b.put
       user_1_b = User.get(:id => user_1_id)
-      assert_equal(with_prefix("richard III"), user_1_b.name)
+      assert_equal(with_test_prefix("richard III"), user_1_b.name)
 
       # Trying to update the same user with out-of-date etag should fail
       assert_raise Qumulo::Rest::RequestFailed do
@@ -175,19 +175,19 @@ module Qumulo::Rest::V1
     def test_user_password
 
       # Create user
-      user = Users.post(:name => with_prefix("richard"), :primary_group => 513)
+      user = Users.post(:name => with_test_prefix("richard"), :primary_group => 513)
       user.set_password("BeetleJuice")
 
       # Create a new client, and see if we can login as the user
       client = Qumulo::Rest::Client.new(:addr => @addr, :port => @port)
-      client.login(:username => with_prefix("richard"), :password => "BeetleJuice")
+      client.login(:username => with_test_prefix("richard"), :password => "BeetleJuice")
       assert_raise Qumulo::Rest::AuthenticationError do
-        client.login(:username => with_prefix("richard"), :password => "BeetleJuice-2")
+        client.login(:username => with_test_prefix("richard"), :password => "BeetleJuice-2")
       end
 
       # Change password, and you should be able to login using a different password
       user.set_password("BeetleJuice-2")
-      client.login(:username => with_prefix("richard"), :password => "BeetleJuice-2")
+      client.login(:username => with_test_prefix("richard"), :password => "BeetleJuice-2")
 
       # Use the client to retrieve groups
       groups = Groups.get({}, {:client => client}).items
@@ -200,12 +200,12 @@ module Qumulo::Rest::V1
     def test_group_membership
 
       # Create groups and users
-      g1 = Groups.post(:name => with_prefix("G1"))
-      g2 = Groups.post(:name => with_prefix("G2"))
-      g3 = Groups.post(:name => with_prefix("G3"))
-      u1 = Users.post(:name => with_prefix("U1"), :primary_group => 513)
-      u2 = Users.post(:name => with_prefix("U2"), :primary_group => 513)
-      u3 = Users.post(:name => with_prefix("U3"), :primary_group => 513)
+      g1 = Groups.post(:name => with_test_prefix("G1"))
+      g2 = Groups.post(:name => with_test_prefix("G2"))
+      g3 = Groups.post(:name => with_test_prefix("G3"))
+      u1 = Users.post(:name => with_test_prefix("U1"), :primary_group => 513)
+      u2 = Users.post(:name => with_test_prefix("U2"), :primary_group => 513)
+      u3 = Users.post(:name => with_test_prefix("U3"), :primary_group => 513)
 
       # Add users 1, 2 to group 1
       g1.add(u1)    # this uses GroupMembers.post
