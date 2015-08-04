@@ -6,10 +6,95 @@ require "qumulo/rest/request_options"
 # UTF8 = Iconv.new("UTF-8//IGNORE", "UTF-8")
 module Qumulo::Rest
 
+  # ------------------------------------------------------------------------
+  # Value converter classes
+  #
+  # A value converter class provides uniform interface used by the Base class to
+  # convert between a native Ruby object and Qumulo API's JSON representation of
+  # the Ruby object.  For example, Qumulo API represents any date time in a
+  # ISO-8601 string that looks like the following:
+  #
+  #   "2015-06-06T01:15:53.312045459Z"
+  #
+  # This string is parsable into Ruby's native DateTime object.  The converter
+  # class for DateTime string will convert this string to native Ruby object.
+  #
+  # A converter class must provide the following class methods:
+  # - is_acceptable?(allowed_type, ruby_obj)
+  # - payload_format(ruby_obj)
+  # - ruby_format(val)
+  #
+
+  # === Class Description
+  # This converter class returns identical value as converted value.  This is
+  # appropriate for native types such as Integer, Fixed, String, Array, etc.
+  class IdentityConverter
+    class << self
+
+      def is_acceptable?(allowed_type, ruby_obj) # :nodoc:
+        allowed_type.nil? or ruby_obj.is_a?(allowed_type)
+      end
+
+      def payload_format(ruby_obj) # :nodoc:
+        ruby_obj
+      end
+
+      def ruby_format(val) # :nodoc:
+        val
+      end
+
+    end
+  end
+
   # == Class Description
   # There is no such thing as "boolean" type in Ruby.  This class provides something
   # to put into "field" declaration in resource classes.
-  class Boolean; end
+  class Boolean < IdentityConverter
+    class << self
+      def is_acceptable?(allowed_type, ruby_obj) # :nodoc:
+        ruby_obj == true or ruby_obj == false
+      end
+    end
+  end
+
+  # === Class Description
+  # This class converts between native Ruby DateTime object and Qumulo API's
+  # JSON representation of a timestamp, which uses ISO-8601 form with fraction
+  # component to represent nanoseconds.
+  class DateTimeConverter < IdentityConverter
+    class << self
+
+      def ruby_format(val) # :nodoc:
+        DateTime.parse(val)
+      end
+
+      def payload_format(ruby_obj) # :nodoc:
+        ruby_obj.strftime("%Y-%m-%dT%H:%M:%S.%NZ")
+      end
+
+    end
+  end
+
+  # === Class Description
+  # This class converts between native Ruby BigNum object and Qumulo API's
+  # JSON representation of 64-bit integer, which is a string.
+  class BignumConverter < IdentityConverter
+    class << self
+
+      def is_acceptable?(allowed_type, ruby_obj) # :nodoc:
+        ruby_obj.is_a?(Integer) # any integer, even small, is acceptable
+      end
+
+      def ruby_format(val) # :nodoc:
+        val.to_i
+      end
+
+      def payload_format(ruby_obj) # :nodoc:
+        ruby_obj.to_s
+      end
+
+    end
+  end
 
   # == Class Description
   # Special data type specified for "query string parameter" key or value.
@@ -31,39 +116,27 @@ module Qumulo::Rest
       # name:: String to use for query string parameter key
       #
       def get_accessor_name(name)
-
         unless name.is_a?(String)
           raise ArgumentError.new(
             "Unexpected key: [#{name.inspect}] [required data type: String]")
         end
-
         unless name =~ /^[0-9a-zA-Z\-]+$/
           raise ArgumentError.new(
             "A query string parameter key cannot contain characters " +
             "other than 0-9, a-z, A-Z or -.")
         end
-
         name.gsub("-", "_")
-
       end
 
-      # === Description
-      # Convert Ruby value into a value that we can append to URI.
-      #
-      # === Parameters
-      # val:: String, ruby value to send as part of query string
-      #
-      def payload_format(val)
+      def is_acceptable?(allowed_type, ruby_obj)
+        ruby_obj.is_a?(String)
+      end
+
+      def payload_format(val) # :nodoc:
         CGI.escape(validated_string("query string", val))
       end
 
-      # === Description
-      # Convert payload (a query string parameter component) to normal Ruby string.
-      #
-      # === Parameters
-      # val:: String, CGI-escaped string to convert to noraml as Ruby string
-      #
-      def ruby_format(val)
+      def ruby_format(val) # :nodoc:
         CGI.unescape(validated_string("query string", val))
       end
 
@@ -75,19 +148,11 @@ module Qumulo::Rest
   # The @element_type indicates what elements the array field must have.
   #
   class TypedArray < Array
-    NATIVE_FIELD_TYPES = [
-      String,
-      Integer,
-      Bignum,
-      DateTime,
-      Boolean,
-      Array,
-      Hash
-    ]
-
     class << self
+      NATIVE_FIELD_TYPES = [String, Integer, Bignum, DateTime, Boolean, Array, Hash]
       attr_reader :element_type
-      def set_element_type(element_type)
+
+      def set_element_type(element_type) # :nodoc:
         unless NATIVE_FIELD_TYPES.include?(element_type) or element_type < Base
           raise DataTypeError.new(
             "Unacceptable element_type #{element_type.inspect}; " +
@@ -96,8 +161,48 @@ module Qumulo::Rest
         end
         @element_type = element_type
       end
+
+      def is_acceptable?(allowed_type, ruby_obj) # :nodoc:
+        ruby_obj.is_a?(Array) or ruby_obj.is_a?(TypedArray)
+      end
+
+      def ruby_format(val) # :nodoc:
+        val.collect do |elt|
+          entry = element_type.new
+          entry.store_attrs(elt)
+          entry
+        end
+      end
+
+      def payload_format(ruby_obj) # :nodoc:
+        ruby_obj.collect do |elt|
+          if elt.is_a?(element_type)
+            elt.as_hash
+          else
+            raise DataTypeError.new(
+              "Unexected element #{elt.inspect} detected " +
+              "[required element type: #{element_type}]")
+          end
+        end
+      end
     end
   end
+
+  # The following table provides the converter classes that correspond to each
+  # Ruby object class allowed by the Base class for REST resources.
+  # key = Ruby class, value = converter class
+  CONVERTER_CLASS = {
+    nil         => IdentityConverter,
+    String      => IdentityConverter,
+    Integer     => IdentityConverter,
+    Array       => IdentityConverter,
+    Hash        => IdentityConverter,
+    Bignum      => BignumConverter,
+    DateTime    => DateTimeConverter,
+    Boolean     => Boolean,
+    TypedArray  => TypedArray,
+    QueryString => QueryString
+  }
 
   # == Class Description
   # All other RESTful resource classes inherit from this class.
@@ -106,7 +211,7 @@ module Qumulo::Rest
   # * HTTP request/response handling
   # * Response Parsing
   #
-  class Base
+  class Base < IdentityConverter
     # Set by client class once it gets loaded
     @@client_class = nil
 
@@ -160,10 +265,11 @@ module Qumulo::Rest
       end
 
       # === Description
-      # Returns a new class that inherits from TypedArray.  You can then set the
-      # element type on it to indicate the element type.  This is useful when
-      # defining a resource class that contains array fields that contain complex
-      # objects in an array.  For example, you can declare NfsExport class as follows:
+      # Returns a new class that inherits from TypedArray.  Then, the given type
+      # is set as the allowed element type.  This is useful when defining a resource
+      # class that contains array fields that contain complex objects in an array.
+      #
+      # For example, you can declare NfsExport class as follows:
       #
       #    class NfsRestriction
       #      field :host_restrictions, array_of(String)
@@ -234,83 +340,41 @@ module Qumulo::Rest
 
         name_s = name.to_s
 
-        # XXX REFACTORING TASK
-        # Instead of if/elif statements below, we should really define classes
-        # that can take care of validation and value conversions.  See example of QueryString
-        # below.  The interface should provide .ruby_format() and .payload_format() methods.
-
-        # Define getter
+        # Define getter - using a converter class, turn payload value into a ruby object to return
         define_method(name) do
+          converter = CONVERTER_CLASS[type] || type
+          val = (converter == QueryString) ? @query[opts[:key_name]] : @attrs[name_s]
+          converter.ruby_format(val)
+        end
 
-          # Query string parameter is special in that its value comes from @query, not @attrs
-          if type == QueryString
-            return QueryString.ruby_format(@query[opts[:key_name]])
+        # Define setter - using a converter class, turn ruby object into json payload to store
+        define_method(name_s + "=") do |ruby_obj|
+          converter = CONVERTER_CLASS[type] || type
+          unless converter.respond_to?(:is_acceptable?)
+             raise DataTypeError.new("Type #{converter} is not a proper converter.")
           end
 
-          # All other field values come out of @attrs and then gets translated
-          json_val = @attrs[name_s]
-          if [String, Integer, Boolean, Array, Hash].include?(type)
-            json_val
-          elsif type == Bignum
-            json_val.to_i       # Ruby handles 64-bit integers seemlessly using Bignum
-          elsif type == DateTime
-            DateTime.parse(json_val)
-          elsif type < TypedArray
-            json_val.collect do |elt|
-              entry = type.element_type.new
-              entry.store_attrs(elt)
-              entry
-            end
-          elsif type and type < Base     # if type is derived from Base
-            type.new(json_val)
+          unless converter.is_acceptable?(type, ruby_obj)
+             raise DataTypeError.new(
+               "Unexpected type: #{ruby_obj.class.name} (#{ruby_obj.inspect}) for #{name} " +
+               "[required data type: #{type}]")
+          end
+
+          if converter == QueryString
+            @query[opts[:key_name]] = converter.payload_format(ruby_obj)
           else
-            json_val
+            @attrs[name_s] = converter.payload_format(ruby_obj)
           end
         end
 
-        # Define setter
-        define_method(name_s + "=") do |val|
-
-          # XXX REFACTORING TASK
-          # This check should move into individual field type classes
-          if not type.nil? and not val.is_a?(type)
-            unless ((type == Bignum and val.is_a?(Fixnum)) or
-                    (type == Boolean and val == true) or
-                    (type == Boolean and val == false) or
-                    (type == QueryString and val.is_a?(String)) or
-                    (type < TypedArray and val.is_a?(Array)))
-              raise DataTypeError.new(
-                "Unexpected type: #{val.class.name} (#{val.inspect}) for #{name} " +
-                "[required data type: #{type}]")
-            end
-          end
-
-          if [nil, String, Integer, Boolean, Array, Hash].include?(type)
-            @attrs[name_s] = val
-          elsif type == Bignum
-            @attrs[name_s] = val.to_s
-          elsif type == DateTime
-            @attrs[name_s] = val.strftime("%Y-%m-%dT%H:%M:%S.%NZ")
-          elsif type < TypedArray
-            @attrs[name_s] = val.collect do |elt|
-              if elt.is_a?(type.element_type)
-                elt.as_hash
-              else
-                raise DataTypeError.new(
-                  "Unexected element #{elt.inspect} detected for #{name} array " +
-                  "[required element type: #{type.element_type}]")
-              end
-            end
-          elsif type and type < Base
-            @attrs[name_s] = val.as_hash
-          elsif type == QueryString
-            @query[opts[:key_name]] = QueryString.payload_format(val)
-          else
-            raise DataTypeError.new(
-              "Cannot store: #{val.inspect} into attribute: #{name} " +
-              "[requires data type: #{type}]")
-          end
+        def ruby_format(val) # :nodoc:
+          self.new(val)
         end
+
+        def payload_format(ruby_obj) # :nodoc:
+          ruby_obj.as_hash
+        end
+
       end
 
       # === Description
