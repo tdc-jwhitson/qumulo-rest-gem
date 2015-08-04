@@ -29,6 +29,113 @@ module Qumulo::Rest
     field :on_hold, array_of(Book)
   end
 
+  class TypedArrayTest < Test::Unit::TestCase
+    include TestEnv
+
+    def setup
+      @book_array = Class.new(TypedArray)
+      @book_array.set_element_type(Book)
+      @book1 = Book.new(:title => "A", :author => "AA", :num_pages => 200)
+      @book2 = Book.new(:title => "B", :author => "BB", :num_pages => 300)
+      @books = @book_array.new([ @book1, @book2 ])
+    end
+
+    def test_constructor
+      assert_equal([
+          { "title"=>"A", "author"=>"AA", "num_pages"=>200 },
+          { "title"=>"B", "author"=>"BB", "num_pages"=>300 }
+      ], @books.payload)
+
+      books2 = @book_array.new
+      assert_equal([], books2.payload)
+    end
+
+    def test_constructor_error
+      assert_raise DataTypeError do
+        @book_array.new([
+          Book.new(:title => "A", :author => "AA", :num_pages => 200),
+          Address.new(:street => "A", :city => "B", :state => "WA", :zip => "11111")
+          ])
+      end
+    end
+
+    def test_forwarded_methods
+      assert_equal(2, @books.length)
+      @books.delete_at(1)
+      assert_equal([ @book1.as_hash ], @books.payload)
+      assert_equal(1, @books.length)
+    end
+
+    def test_equality
+      # Re-create a wholy new TypedArray object with the same content but different objects
+      books2 = @book_array.new([
+                 Book.new(:title => "A", :author => "AA", :num_pages => 200),
+                 Book.new(:title => "B", :author => "BB", :num_pages => 300)
+               ])
+      assert_equal(@books, books2)
+    end
+
+    def test_each
+      @books.each do |elt|
+        elt.is_a?(Book)
+        elt.title == "A" or elt.title == "B"
+      end
+    end
+
+    def test_enumerable
+      # select
+      selected = @books.select { |elt| elt.title == "A" }
+      assert_equal([ @book1 ], selected)
+
+      # reduce
+      reduced = @books.reduce(0) { |memo, elt| memo += elt.num_pages }
+      assert_equal(500, reduced)
+    end
+
+    def test_subscript_reference
+      # Get
+      assert_equal(@book1, @books[0])
+      assert_equal(@book2, @books[1])
+
+      # Set
+      @books[0].author = "AAA"
+      assert_equal("AAA", @book1.author) # Verify that reference is maintained
+
+      # Verify payload
+      assert_equal({"title"=>"A", "author" => "AAA", "num_pages" => 200},
+        @books[0].as_hash)
+      assert_equal([
+          { "title"=>"A", "author"=>"AAA", "num_pages"=>200 },
+          { "title"=>"B", "author"=>"BB", "num_pages"=>300 }
+        ], @books.payload)
+    end
+
+    def test_append_first_last
+      @book3 = Book.new(:title => "C", :author => "AA", :num_pages => 400)
+      @books << @book3
+      assert_equal(3, @books.length)
+      assert_equal(@book1, @books.first)
+      assert_equal(@book3, @books.last)
+    end
+
+    def test_insert
+      @book3 = Book.new(:title => "C", :author => "AA", :num_pages => 400)
+      @books.insert(0, @book3)
+      assert_equal(3, @books.length)
+      assert_equal(@book3, @books.first)
+      assert_equal(@book2, @books.last)
+    end
+
+    def test_delete_if
+      @books.delete_if do |elt|
+        elt.author == "AA"
+      end
+      assert_equal(1, @books.length)
+      assert_equal(@book2, @books[0])
+    end
+
+  end
+
   class BaseTest < Test::Unit::TestCase
     include TestEnv
 
@@ -143,7 +250,7 @@ module Qumulo::Rest
         ]
       end
     end
-
   end
+
 end
 
