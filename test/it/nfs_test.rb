@@ -19,8 +19,21 @@ module Qumulo::Rest::V1
       connection_params_from_env # sets @username, @password, @addr, @port
       Qumulo::Rest::Client.configure(:addr => @addr, :port => @port)
       Qumulo::Rest::Client.login(:username => @username, :password => @password)
-
       clean_up_integration_test_objects
+
+      # Template for creating new NFS exports
+      @template = NfsExport.new(
+                  :export_path => "/" + with_test_prefix("NFS1"),
+                  :fs_path => "/" + with_test_prefix("NFS1"),
+                  :description => with_test_prefix("my first NFS export"),
+                  :restrictions => [
+                    NfsRestriction.new(
+                      :host_restrictions => [],
+                      :read_only => false,
+                      :user_mapping => NFS_MAP_NONE,
+                      :map_to_user_id => 0)
+                  ])
+      @template.allow_fs_path_create = "true"
     end
 
     def teardown
@@ -32,19 +45,7 @@ module Qumulo::Rest::V1
     def test_nfs_export_crud
 
       # Create a new NFS export
-      template = NfsExport.new(
-                  :export_path => "/" + with_test_prefix("NFS1"),
-                  :fs_path => "/" + with_test_prefix("NFS1"),
-                  :description => with_test_prefix("my first NFS export share"),
-                  :restrictions => [
-                    NfsRestriction.new(
-                      :host_restrictions => [],
-                      :read_only => false,
-                      :user_mapping => NFS_MAP_NONE,
-                      :map_to_user_id => 0)
-                  ])
-      template.allow_fs_path_create = "true"
-      nfs_export = NfsExports.post(template)
+      nfs_export = NfsExports.post(@template)
 
       # Read NFS export
       nfs_export = NfsExport.get(:id => nfs_export.id)
@@ -70,6 +71,21 @@ module Qumulo::Rest::V1
       # Delete the NFS export
       nfs_export2.delete
 
+    end
+
+    def test_nfs_export_list
+      exports = NfsExports.get
+      original_length = exports.items.length
+      nfs_export = NfsExports.post(@template)
+
+      # We should have one more NFS export
+      exports = NfsExports.get
+      assert_equal(original_length + 1, exports.items.length)
+
+      # We should have one less after deleting
+      nfs_export.delete
+      exports = NfsExports.get
+      assert_equal(original_length, exports.items.length)
     end
 
   end

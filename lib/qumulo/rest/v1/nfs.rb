@@ -22,7 +22,7 @@ module Qumulo::Rest
     end
 
     # == Class Description
-    # Represents a single user.
+    # Represents a single NFS export.
     #
     # == Supported Methods
     # GET, PUT, DELETE
