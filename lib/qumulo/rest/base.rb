@@ -615,7 +615,7 @@ module Qumulo::Rest
         path.split('/', -1).each do |part|
           resolved_part = (part =~ /^:/) ? CGI.escape(kv[part.sub(/^:/, '')].to_s) : part
           if (part != "" and resolved_part == "")
-            throw UriError.new("Cannot resolve #{part} in path #{path} from #{kv.inspect}")
+            raise UriError.new("Cannot resolve #{part} in path #{path} from #{kv.inspect}")
           end
           resolved << resolved_part
         end

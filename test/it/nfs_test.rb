@@ -1,10 +1,10 @@
-require 'test/unit'
+require 'minitest/autorun'
 require 'test_env'
 require 'qumulo/rest'
 require 'qumulo/rest/v1/nfs'
 
 module Qumulo::Rest::V1
-  class NfsTest < Test::Unit::TestCase
+  class NfsTest < Minitest::Test
     include Qumulo::Rest::TestEnv
 
     def clean_up_integration_test_objects

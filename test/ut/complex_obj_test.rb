@@ -1,4 +1,4 @@
-require "test/unit"
+require "minitest/autorun"
 require "test_env"
 require "date"
 require "net/http"
@@ -29,7 +29,7 @@ module Qumulo::Rest
     field :on_hold, array_of(Book)
   end
 
-  class TypedArrayTest < Test::Unit::TestCase
+  class TypedArrayTest < Minitest::Test
     include TestEnv
 
     def setup
@@ -51,7 +51,7 @@ module Qumulo::Rest
     end
 
     def test_constructor_error
-      assert_raise DataTypeError do
+      assert_raises DataTypeError do
         @book_array.new([
           Book.new(:title => "A", :author => "AA", :num_pages => 200),
           Address.new(:street => "A", :city => "B", :state => "WA", :zip => "11111")
@@ -136,7 +136,7 @@ module Qumulo::Rest
 
   end
 
-  class BaseTest < Test::Unit::TestCase
+  class BaseTest < Minitest::Test
     include TestEnv
 
     def setup
@@ -235,7 +235,7 @@ module Qumulo::Rest
 
       # Cannot assign a field with unexpected data type, in this case Address
       # is expected, but Hash is being given.
-      assert_raise DataTypeError do
+      assert_raises DataTypeError do
         library.address = {"street"=>"1002 Elm Street",
                            "city"=>"Pleasantville", "state"=>"Oklahoma",
                            "zip"=>"74079"}
@@ -243,7 +243,7 @@ module Qumulo::Rest
 
       # Cannot assign an array with the wrong element type; in this case, we need
       # an array of Book instances, but an array of Hash instances are given.
-      assert_raise DataTypeError do
+      assert_raises DataTypeError do
         library.best_sellers = [
             { "title"=>"The Girl on the Train", "author"=>"Paula Hawkins", "num_pages"=>336 },
             { "title"=>"The Wright Brothers",  "author"=>"David McCullough", "num_pages"=>336 }

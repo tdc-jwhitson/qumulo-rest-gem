@@ -1,10 +1,10 @@
-require 'test/unit'
+require 'minitest/autorun'
 require 'test_env'
 require 'qumulo/rest'
 require 'qumulo/rest/v1/user'
 
 module Qumulo::Rest::V1
-  class UserTest < Test::Unit::TestCase
+  class UserTest < Minitest::Test
     include Qumulo::Rest::TestEnv
 
     def clean_up_integration_test_objects
@@ -90,8 +90,8 @@ module Qumulo::Rest::V1
 
       # Verify that users were deleted
       Users.get.items.each do |user|
-        assert_not_equal(user.id, user_1.id)
-        assert_not_equal(user.id, user_2.id)
+        refute_equal(user.id, user_1.id)
+        refute_equal(user.id, user_2.id)
       end
 
     end
@@ -138,8 +138,8 @@ module Qumulo::Rest::V1
 
       # Verify that groups were deleted
       Groups.get.items.each do |group|
-        assert_not_equal(group.id, group_1.id)
-        assert_not_equal(group.id, group_2.id)
+        refute_equal(group.id, group_1.id)
+        refute_equal(group.id, group_2.id)
       end
 
     end
@@ -162,7 +162,7 @@ module Qumulo::Rest::V1
       assert_equal(with_test_prefix("richard III"), user_1_b.name)
 
       # Trying to update the same user with out-of-date etag should fail
-      assert_raise Qumulo::Rest::RequestFailed do
+      assert_raises Qumulo::Rest::RequestFailed do
         user_1_a.put
       end
 
@@ -181,7 +181,7 @@ module Qumulo::Rest::V1
       # Create a new client, and see if we can login as the user
       client = Qumulo::Rest::Client.new(:addr => @addr, :port => @port)
       client.login(:username => with_test_prefix("richard"), :password => "BeetleJuice")
-      assert_raise Qumulo::Rest::AuthenticationError do
+      assert_raises Qumulo::Rest::AuthenticationError do
         client.login(:username => with_test_prefix("richard"), :password => "BeetleJuice-2")
       end
 

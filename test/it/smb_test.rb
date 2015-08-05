@@ -1,10 +1,10 @@
-require 'test/unit'
+require 'minitest/autorun'
 require 'test_env'
 require 'qumulo/rest'
 require 'qumulo/rest/v1/smb'
 
 module Qumulo::Rest::V1
-  class SmbTest < Test::Unit::TestCase
+  class SmbTest < Minitest::Test
     include Qumulo::Rest::TestEnv
 
     def clean_up_integration_test_objects

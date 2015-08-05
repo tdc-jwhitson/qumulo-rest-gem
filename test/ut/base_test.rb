@@ -1,4 +1,5 @@
-require "test/unit"
+# require "test/unit"
+require "minitest/autorun"
 require "test_env"
 require "date"
 require "fake_http"
@@ -61,7 +62,7 @@ module Qumulo::Rest
     field :best_song, Song
   end
 
-  class BaseTest < Test::Unit::TestCase
+  class BaseTest < Minitest::Test
     include TestEnv
 
     def setup
@@ -147,37 +148,37 @@ module Qumulo::Rest
       album = Album.new()
 
       # non-String not accepted
-      assert_raise Qumulo::Rest::DataTypeError do
+      assert_raises Qumulo::Rest::DataTypeError do
         album.id = 10
       end
 
       # non-DateTime not accepted
-      assert_raise Qumulo::Rest::DataTypeError do
+      assert_raises Qumulo::Rest::DataTypeError do
         album.release = "2016-01-01T08:00:00.987654321Z"
       end
 
       # non-Integer not accepted
-      assert_raise Qumulo::Rest::DataTypeError do
+      assert_raises Qumulo::Rest::DataTypeError do
         album.money_earned = "20000"
       end
 
       # non-Integer not accepted
-      assert_raise Qumulo::Rest::DataTypeError do
+      assert_raises Qumulo::Rest::DataTypeError do
         album.song_count = true
       end
 
       # non-Array not accepted
-      assert_raise Qumulo::Rest::DataTypeError do
+      assert_raises Qumulo::Rest::DataTypeError do
         album.songs = "going"
       end
 
       # non-Hash not accepted
-      assert_raise Qumulo::Rest::DataTypeError do
+      assert_raises Qumulo::Rest::DataTypeError do
         album.meta = ["going"]
       end
 
       # non-Object not accepted
-      assert_raise Qumulo::Rest::DataTypeError do
+      assert_raises Qumulo::Rest::DataTypeError do
         album.biggest_fan = {"id" => "40", "name" => "f"}
       end
 
@@ -193,7 +194,7 @@ module Qumulo::Rest
       album = Album.new()
 
       # Storing good result clears the error
-      assert_raise Qumulo::Rest::RequestFailed do
+      assert_raises Qumulo::Rest::RequestFailed do
         album.store_result({
           :response => Net::HTTPResponse.new("1.1", 503, "test error"),
           :code => 503,
@@ -234,7 +235,7 @@ module Qumulo::Rest
 
   end
 
-  class BaseCollectionTest < Test::Unit::TestCase
+  class BaseCollectionTest < Minitest::Test
     include TestEnv
 
     def setup
@@ -271,7 +272,7 @@ module Qumulo::Rest
       songs = Songs.new()
 
       # Mismatching expectation: Hash vs Array
-      assert_raise Qumulo::Rest::ResourceMismatchError do
+      assert_raises Qumulo::Rest::ResourceMismatchError do
         songs.store_result({
           :response => Net::HTTPResponse.new("1.1", 200, "OK"),
           :code => 200,
@@ -314,7 +315,7 @@ module Qumulo::Rest
 
     def test_hash_wrapped_collection_failure
       fans = Fans.new()
-      assert_raise Qumulo::Rest::ResourceMismatchError do
+      assert_raises Qumulo::Rest::ResourceMismatchError do
         fans.store_result({
           :response => Net::HTTPResponse.new("1.1", 200, "OK"),
           :code => 200,
@@ -412,9 +413,9 @@ module Qumulo::Rest
           :attrs => {"id" => "100", "album" => "10",
                      "title" => "Sea", "lyrics" => "great",
                      "artist" => "boozy"}})
-      assert_raise NameError do
-          new_song = Songs.post("album" => "10", "title" => "Sea",
-                                "lyrics" => "great", "artist" => "boozy")
+      assert_raises UriError do
+          Songs.post("album" => "10", "title" => "Sea",
+                     "lyrics" => "great", "artist" => "boozy")
       end
     end
   end

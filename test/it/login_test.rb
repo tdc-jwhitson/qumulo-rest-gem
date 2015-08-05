@@ -1,9 +1,9 @@
-require 'test/unit'
+require 'minitest/autorun'
 require 'test_env'
 require 'qumulo/rest'
 
 module Qumulo::Rest
-  class LoginTest < Test::Unit::TestCase
+  class LoginTest < Minitest::Test
     include TestEnv
 
     def setup
@@ -39,10 +39,10 @@ module Qumulo::Rest
 
         # Cannot login using the old password
         Client.logout
-        assert_raise AuthenticationError do
+        assert_raises AuthenticationError do
           Client.login(:username => @username, :password => @password)
         end
-        assert_raise LoginRequired do
+        assert_raises LoginRequired do
           Qumulo::Rest::V1::WhoAmI.get
         end
 

@@ -1,11 +1,11 @@
-require 'test/unit'
+require 'minitest/autorun'
 require 'fake_http'
 require 'qumulo/rest/exception'
 require 'qumulo/rest/client'
 require 'qumulo/rest/v1/user'
 
 module Qumulo::Rest
-  class ClientTest < Test::Unit::TestCase
+  class ClientTest < Minitest::Test
 
     OPTS_1 = {
       :addr => "dummy",
@@ -53,7 +53,7 @@ module Qumulo::Rest
     def test_client_unconfigure
       # Configuring client twice raises exception
       Client.configure(OPTS_1)
-      assert_raise ConfigError do
+      assert_raises ConfigError do
         Client.configure(OPTS_2)
       end
       # You can reconfigure client after clearing the configuration
@@ -66,19 +66,19 @@ module Qumulo::Rest
     end
 
     def test_client_invalid_params
-      assert_raise ValidationError do
+      assert_raises ValidationError do
         Client.configure(OPTS_2.clone.update(:addr => ""))
       end
-      assert_raise ValidationError do
+      assert_raises ValidationError do
         Client.configure(OPTS_2.clone.update(:port => "bad"))
       end
-      assert_raise ValidationError do
+      assert_raises ValidationError do
         Client.configure(OPTS_2.clone.update(:port => -102))
       end
-      assert_raise ValidationError do
+      assert_raises ValidationError do
         Client.configure(OPTS_2.clone.update(:http_timeout => "bad"))
       end
-      assert_raise ValidationError do
+      assert_raises ValidationError do
         Client.configure(OPTS_2.clone.update(:http_timeout => -20))
       end
     end
@@ -108,10 +108,10 @@ module Qumulo::Rest
 
       # client is set up with FakeHttp
       Client.configure(OPTS_FAKE_HTTP)
-      assert_raise AuthenticationError do
+      assert_raises AuthenticationError do
         Client.login(:username => "fakeuser", :password => "fakepass")
       end
-      assert_raise LoginRequired do
+      assert_raises LoginRequired do
         Qumulo::Rest::V1::WhoAmI.get
       end
     end
