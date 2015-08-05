@@ -50,9 +50,25 @@ module Qumulo::Rest::V1
       nfs_export = NfsExport.get(:id => nfs_export.id)
       assert_equal(1, nfs_export.restrictions.length)
 
-      # Update the NFS export with new NFS restrictions
+      # Update the NFS export with new NFS restrictions, and save it to server
+      nfs_export.description = "XXX"
+      nfs_export.restrictions.insert(0, NfsRestriction.new(
+          :host_restrictions => [ "1.1.1.1" ],
+          :read_only => true,
+          :user_mapping => NFS_MAP_NONE,
+          :map_to_user_id => 0))
+      assert_equal(2, nfs_export.restrictions.length)
+      assert_equal("1.1.1.1", nfs_export.restrictions[0].host_restrictions[0])
+      assert_equal(nil, nfs_export.restrictions[1].host_restrictions[0])
+      nfs_export.put
+
+      # Get it to validate it
+      nfs_export2 = NfsExport.get(:id => nfs_export.id)
+      assert_equal(nfs_export.as_hash, nfs_export2.as_hash)
+      assert_equal(nfs_export, nfs_export2)
 
       # Delete the NFS export
+      nfs_export2.delete
 
     end
 
