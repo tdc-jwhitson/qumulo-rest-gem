@@ -15,6 +15,7 @@
 
 require "cgi"
 require "date"
+require "forwardable"
 require "qumulo/rest/validator"
 require "qumulo/rest/request_options"
 
