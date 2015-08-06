@@ -21,8 +21,11 @@ require "optparse"
 class ApplicationMain
 
   def parse_options(args)
+    @port = 8000
+    @username = "admin"
+    @password = "admin"
     parser = OptionParser.new do |opts|
-      opts.banner  = "Usage: user_add.rb [options] new_login"
+      opts.banner  = "Usage: user_add.rb [options] NEW_LOGIN"
       opts.separator "       Add a new user to Qumulo cluster."
       opts.separator "Options:"
       opts.on("-i", "--ip ADDR", "[required] Address of Qumulo cluster") { |s| @addr = s }
@@ -36,16 +39,10 @@ class ApplicationMain
       opts.separator ""
     end
     @new_user = parser.parse(args)[0]
-  end
-
-  def validate_arguments
     unless @addr and @new_user
       puts "ADDR and NEW_LOGIN are required arguments"
       exit 1
     end
-    @port ||= 8000
-    @username ||= "admin"
-    @password ||= "admin"
   end
 
   def connect
@@ -71,7 +68,6 @@ class ApplicationMain
 
   def run
     argv = parse_options(ARGV)
-    validate_arguments
     connect
     create_user
   end
