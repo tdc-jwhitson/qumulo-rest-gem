@@ -25,11 +25,10 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "minitest"
   spec.add_development_dependency "minitest-ci"
 
-  # Use rcov if 1.8.7 or older, otherwise we need to use simplecov
-  if RUBY_VERSION == "1.8.7"
-    spec.add_development_dependency "rcov"
-  else
+  # Only perform code coverage on 2.2.2
+  if RUBY_VERSION == "2.2.2"
     spec.add_development_dependency "simplecov"
+    spec.add_development_dependency "simplecov-rcov"
   end
 
 end
