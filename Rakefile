@@ -17,3 +17,13 @@ Rake::TestTask.new(:integration) do |t|
   t.description = "Run integration tests"
 end
 
+task :coverage do
+  if RUBY_VERSION != "2.2.2"
+    puts "Code coverage is only run on 2.2.2."
+  else
+    require "simplecov"
+    SimpleCov.start
+    Rake::Task["test"].execute
+  end
+end
+
