@@ -1,5 +1,6 @@
 require "bundler/gem_tasks"
 require "rake/testtask"
+require 'minitest/ci'
 
 Rake::TestTask.new do |t|
   t.libs << "test"
