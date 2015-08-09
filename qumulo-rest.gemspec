@@ -1,7 +1,7 @@
 # coding: utf-8
-lib = File.expand_path('../lib', __FILE__)
+lib = File.expand_path("../lib", __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'qumulo/rest/gem_version'
+require "qumulo/rest/gem_version"
 
 QUMULO_PRODUCT_NAME = "Qumulo Core appliance"
 Gem::Specification.new do |spec|
@@ -25,8 +25,13 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "minitest"
   spec.add_development_dependency "minitest-ci"
 
-  # Only perform code coverage on 2.2.2
-  if RUBY_VERSION == "2.2.2"
+  def ver_to_i(version_string)
+    a = version_string.split(".")
+    10000 * a[0].to_i + 100 * a[1].to_i + 1 * a[2].to_i
+  end
+
+  if ver_to_i(RUBY_VERSION) >= ver_to_i("1.9.2")
+    spec.add_development_dependency "minitest-reporters"
     spec.add_development_dependency "simplecov"
     spec.add_development_dependency "simplecov-rcov"
   end

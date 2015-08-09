@@ -13,11 +13,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-require 'minitest/autorun'
-require 'fake_http'
-require 'qumulo/rest/exception'
-require 'qumulo/rest/client'
-require 'qumulo/rest/v1/user'
+require "test_env"
+
+require "fake_http"
+require "qumulo/rest/exception"
+require "qumulo/rest/client"
+require "qumulo/rest/v1/user"
 
 module Qumulo::Rest
   class ClientTest < Minitest::Test

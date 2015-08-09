@@ -13,9 +13,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-require 'minitest/autorun'
-require 'test_env'
-require 'qumulo/rest'
+require "test_env"
+
+require "qumulo/rest"
 
 module Qumulo::Rest
   class LoginTest < Minitest::Test

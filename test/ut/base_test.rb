@@ -13,12 +13,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-require "minitest/autorun"
 require "test_env"
-require "date"
-require "fake_http"
-require "net/http"
 
+require "date"
+require "net/http"
 require "qumulo/rest/exception"
 require "qumulo/rest/base"
 require "qumulo/rest/base_collection"
